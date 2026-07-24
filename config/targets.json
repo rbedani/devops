@@ -1,0 +1,28 @@
+[
+  {
+    "name": "devops_remote_españa",
+    "platform": "linkedin",
+    "filters": {
+      "keywords": ["devops", "ansible"],
+      "countries": ["España"],
+      "modalities": ["remoto", "hibrido"],
+      "date_range": "last_week"
+    },
+    "max_results": 25,
+    "enabled": true,
+    "tags": ["devops", "españa", "remoto"]
+  },
+  {
+    "name": "devops_remote_spain",
+    "platform": "linkedin",
+    "filters": {
+      "keywords": ["devops", "ansible"],
+      "countries": ["Spain"],
+      "modalities": ["remoto", "hibrido"],
+      "date_range": "last_week"
+    },
+    "max_results": 25,
+    "enabled": true,
+    "tags": ["devops", "spain", "remote"]
+  }
+]

@@ -54,8 +54,13 @@ class LinkedInScraper(BaseScraper):
         url = f"{LINKEDIN_JOBS_URL}?{urlencode(params)}"
         logger.info("Navigating to: %s", url)
 
-        await self.page.goto(url, wait_until="networkidle", timeout=30000)
-        await self.page.wait_for_timeout(2000)  # let JS render
+        try:
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
+        except PwTimeout:
+            logger.warning("Timeout loading search page: %s", url)
+            return []
+
+        await self.page.wait_for_timeout(3000)  # let JS render
 
         jobs: list[Job] = []
 
