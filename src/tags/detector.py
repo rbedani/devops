@@ -120,16 +120,43 @@ def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[
     text = f"{title} {description}"
     patterns: list[tuple[str, float]] = []
 
-    # Match salary patterns: "$1,234", "USD 50k", "€30.000", "S/ 4000", etc.
-    salary_re = re.compile(
+    # Pattern 1: Explicit salary keywords + number ranges
+    # "Salary: USD 80,000-100,000", "Salario: $50.000 a $80.000"
+    keyword_re = re.compile(
+        r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa)'
+        r'[:\s]*'
         r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|\bCLP\s*|\bCOP\s*)'
-        r'[\d.,]+\s*(?:k|K|mil)?'
-        r'(?:\s*[-–a]\s*(?:USD?\s*|\$\s*|€\s*|S/\s*)?[\d.,]+\s*(?:k|K|mil)?)?',
+        r'\d[\d.,]*\s*(?:k|K|mil)?'
+        r'(?:\s*[-–aA]\s*(?:USD?\s*|\$\s*|€\s*|S/\s*)?\d[\d.,]*\s*(?:k|K|mil)?)?',
         re.IGNORECASE,
     )
-    matches = salary_re.findall(text)
-    for m in matches:
-        patterns.append((m.strip(), 0.9))
+    for m in keyword_re.finditer(text):
+        patterns.append((m.group(0).strip(), 0.95))
+
+    # Pattern 2: Currency amounts without keywords (already in description)
+    currency_re = re.compile(
+        r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|\bCLP\s*|\bCOP\s*)'
+        r'\d[\d.,]*\s*(?:k|K|mil)?'
+        r'(?:\s*[-–aA]\s*(?:USD?\s*|\$\s*|€\s*|S/\s*)?\d[\d.,]*\s*(?:k|K|mil)?)?',
+        re.IGNORECASE,
+    )
+    seen = {p[0] for p in patterns}
+    for m in currency_re.finditer(text):
+        val = m.group(0).strip()
+        if val not in seen:
+            patterns.append((val, 0.8))
+            seen.add(val)
+
+    # Pattern 3: Ranges like "80k-100k" or "80,000 - 100,000 USD"
+    range_re = re.compile(
+        r'[\d.,]+\s*(?:k|K|mil)\s*[-–aA]\s*[\d.,]+\s*(?:k|K|mil)\s*(?:USD?|EUR|CLP|COP)?',
+        re.IGNORECASE,
+    )
+    for m in range_re.finditer(text):
+        val = m.group(0).strip()
+        if val not in seen:
+            patterns.append((val, 0.85))
+            seen.add(val)
 
     return patterns
 

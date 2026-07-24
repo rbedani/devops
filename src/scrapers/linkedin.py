@@ -123,8 +123,13 @@ class LinkedInScraper(BaseScraper):
 
     async def scrape_detail(self, url: str) -> Job:
         """Scrape the full detail page of a LinkedIn job."""
-        await self.page.goto(url, wait_until="networkidle", timeout=30000)
-        await self.page.wait_for_timeout(2000)
+        try:
+            await self.page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        except PwTimeout:
+            logger.warning("Timeout loading detail page: %s", url)
+            return Job(source=self.SOURCE, title="", url=url)
+
+        await self.page.wait_for_timeout(3000)
 
         title = await self._safe_text(".top-card-layout__title, h1")
         company = await self._safe_text(".topcard__org-name-link, .top-card-layout__second-subtitle")
