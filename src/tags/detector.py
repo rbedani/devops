@@ -111,51 +111,106 @@ def _detect_schedule(title: str, description: str, _meta: dict[str, Any]) -> lis
     return patterns
 
 
+def _parse_first_number(raw: str) -> float | None:
+    """Extract and parse the FIRST number from a salary string.
+
+    Handles ranges like "$80,000 - $100,000" by parsing only "$80,000".
+    """
+    # Remove currency symbols
+    cleaned = raw.replace("€", "").replace("$", "").replace("USD", "").replace("EUR", "").strip()
+
+    # Take only up to the first separator (-, –, a, to)
+    cleaned = re.split(r'\s*[-–aA]\s*', cleaned)[0].strip()
+
+    # Handle k/K/mil suffix
+    multiplier = 1
+    k_match = re.search(r'(\d+)\s*k\b', cleaned, re.IGNORECASE)
+    if k_match:
+        cleaned = k_match.group(1)
+        multiplier = 1000
+    elif "mil" in cleaned.lower():
+        cleaned = re.sub(r'\s*mil\s*', '', cleaned, flags=re.IGNORECASE)
+        multiplier = 1000
+
+    # Remove everything except digits and dots/commas
+    cleaned = re.sub(r'[^\d.,]', '', cleaned)
+
+    # European format: "45.000" → 45000
+    if re.match(r'^\d{1,3}\.\d{3}$', cleaned):
+        cleaned = cleaned.replace(".", "")
+    # European decimal: "45.000,50" → 45000.50
+    elif re.match(r'^\d{1,3}\.\d{3},\d+$', cleaned):
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    # US thousands: "45,000" → 45000
+    elif re.match(r'^\d{1,3},\d{3}', cleaned):
+        cleaned = cleaned.replace(",", "")
+
+    try:
+        return float(cleaned) * multiplier
+    except (ValueError, TypeError):
+        return None
+
+
+def _is_likely_salary(value: float) -> bool:
+    """Check if a numeric value is in a reasonable annual salary range (EUR)."""
+    return 15_000 <= value <= 500_000
+
+
+def _is_year_like(text: str) -> bool:
+    """Check if the matched text contains a year (2000-2099)."""
+    for num in re.findall(r'\d{4}', text):
+        if 2000 <= int(num) <= 2099:
+            return True
+    return False
+
+
 def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
-    """Detect salary amounts in EU (€-after-number) and US ($-before-number) formats."""
+    """Detect salary in EUR/USD with validation against false positives."""
     text = f"{title} {description}"
     patterns: list[tuple[str, float]] = []
     seen: set[str] = set()
 
-    # --- Regex components ---
-    # Currency before number: "$", "USD ", "€", "S/ "
-    CURR_BEFORE = r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|CLP\s*|COP\s*)'
-    # Currency after number: "€", " USD", " EUR", " $"
-    CURR_AFTER = r'(?:\s*€|\s*USD|\s*EUR|\s*\$)?'
-    # Number with optional thousands separator and k/K/mil suffix
+    # Currency symbols
+    CURR = r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|CLP\s*|COP\s*)'
+    CURR_ANY = r'(?:€|USD|EUR|\$)?'
     NUM = r'\d[\d.,]*\s*(?:k|K|mil)?'
-    # Optional range connector
-    RANGE = r'(?:\s*[-–aA]\s*)'
+    SEP = r'(?:\s*[-–aA]\s*)'
 
-    # --- Pattern 1: Keyword + amount (highest confidence) ---
-    # "Salario: 45.000€", "Salary: USD 80k-100k", "Compensación: €50.000 a €65.000"
-    KW = r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa)'
-    keyword_pattern = (
+    # --- Pattern 1: Salary keyword + amount ---
+    KW = r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa|rango\s+salarial|salary\s+range)'
+    kw_re = re.compile(
         KW + r'[:\s]*'
-        + r'(?:' + CURR_BEFORE + r')?'
-        + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER
-        + r'(?:' + RANGE + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER + r')?'
+        + CURR + r'?' + NUM + CURR_ANY
+        + r'(?:' + SEP + CURR + r'?' + NUM + CURR_ANY + r')?',
+        re.IGNORECASE,
     )
-    keyword_re = re.compile(keyword_pattern, re.IGNORECASE)
-    for m in keyword_re.finditer(text):
+    for m in kw_re.finditer(text):
         val = m.group(0).strip()
-        if val not in seen:
-            patterns.append((val, 0.95))
-            seen.add(val)
+        if val in seen or _is_year_like(val):
+            continue
+        parsed = _parse_first_number(val)
+        if parsed is not None and not _is_likely_salary(parsed):
+            continue
+        patterns.append((val, 0.95))
+        seen.add(val)
 
-    # --- Pattern 2: Currency amount without keyword ---
-    # "45.000€ a 55.000€", "$120,000", "€80.000"
-    currency_pattern = (
-        r'(?:' + CURR_BEFORE + r')?'
-        + NUM + CURR_AFTER
-        + r'(?:' + RANGE + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER + r')?'
+    # --- Pattern 2: Currency + number (no keyword needed) ---
+    curr_re = re.compile(
+        CURR + r'?' + NUM + CURR_ANY
+        + r'(?:' + SEP + CURR + r'?' + NUM + CURR_ANY + r')?',
+        re.IGNORECASE,
     )
-    currency_re = re.compile(currency_pattern, re.IGNORECASE)
-    for m in currency_re.finditer(text):
+    for m in curr_re.finditer(text):
         val = m.group(0).strip()
-        if len(val) < 4 or val in seen:
+        if len(val) < 4 or val in seen or _is_year_like(val):
             continue
         if not any(c.isdigit() for c in val):
+            continue
+        # Must contain a currency symbol
+        if not re.search(r'[€$]', val) and not re.search(r'\b(USD|EUR)\b', val, re.IGNORECASE):
+            continue
+        parsed = _parse_first_number(val)
+        if parsed is not None and not _is_likely_salary(parsed):
             continue
         patterns.append((val, 0.8))
         seen.add(val)
