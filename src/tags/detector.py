@@ -1,9 +1,4 @@
-"""Auto-detection engine for job listing tags.
-
-Each detector is a callable that takes raw text (title + description + metadata)
-and returns a list of (key, value, confidence) tuples.  Detectors are registered
-in a registry so new tags can be added without touching existing code.
-"""
+"""Tag auto-detection engine."""
 
 from __future__ import annotations
 
@@ -21,7 +16,7 @@ class TagDetector:
     key: str
     extract_fn: Callable[[str, str, dict[str, Any]], list[tuple[str, float]]]
     description: str = ""
-    priority: int = 0  # higher = runs first
+    priority: int = 0
 
     def detect(self, title: str, description: str, metadata: dict[str, Any]) -> list[JobTag]:
         raw = self.extract_fn(title, description, metadata)
@@ -29,7 +24,7 @@ class TagDetector:
 
 
 class TagRegistry:
-    """Registry of tag detectors.  Call register() to add new extraction rules."""
+    """Registry of tag detectors."""
 
     def __init__(self) -> None:
         self._detectors: list[TagDetector] = []
@@ -117,46 +112,60 @@ def _detect_schedule(title: str, description: str, _meta: dict[str, Any]) -> lis
 
 
 def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
+    """Detect salary amounts in EU (€-after-number) and US ($-before-number) formats."""
     text = f"{title} {description}"
     patterns: list[tuple[str, float]] = []
+    seen: set[str] = set()
 
-    # Pattern 1: Explicit salary keywords + number ranges
-    # "Salary: USD 80,000-100,000", "Salario: $50.000 a $80.000"
-    keyword_re = re.compile(
-        r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa)'
-        r'[:\s]*'
-        r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|\bCLP\s*|\bCOP\s*)'
-        r'\d[\d.,]*\s*(?:k|K|mil)?'
-        r'(?:\s*[-–aA]\s*(?:USD?\s*|\$\s*|€\s*|S/\s*)?\d[\d.,]*\s*(?:k|K|mil)?)?',
-        re.IGNORECASE,
+    # --- Regex components ---
+    # Currency before number: "$", "USD ", "€", "S/ "
+    CURR_BEFORE = r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|CLP\s*|COP\s*)'
+    # Currency after number: "€", " USD", " EUR", " $"
+    CURR_AFTER = r'(?:\s*€|\s*USD|\s*EUR|\s*\$)?'
+    # Number with optional thousands separator and k/K/mil suffix
+    NUM = r'\d[\d.,]*\s*(?:k|K|mil)?'
+    # Optional range connector
+    RANGE = r'(?:\s*[-–aA]\s*)'
+
+    # --- Pattern 1: Keyword + amount (highest confidence) ---
+    # "Salario: 45.000€", "Salary: USD 80k-100k", "Compensación: €50.000 a €65.000"
+    KW = r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa)'
+    keyword_pattern = (
+        KW + r'[:\s]*'
+        + r'(?:' + CURR_BEFORE + r')?'
+        + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER
+        + r'(?:' + RANGE + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER + r')?'
     )
+    keyword_re = re.compile(keyword_pattern, re.IGNORECASE)
     for m in keyword_re.finditer(text):
-        patterns.append((m.group(0).strip(), 0.95))
+        val = m.group(0).strip()
+        if val not in seen:
+            patterns.append((val, 0.95))
+            seen.add(val)
 
-    # Pattern 2: Currency amounts without keywords (already in description)
-    currency_re = re.compile(
-        r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|\bCLP\s*|\bCOP\s*)'
-        r'\d[\d.,]*\s*(?:k|K|mil)?'
-        r'(?:\s*[-–aA]\s*(?:USD?\s*|\$\s*|€\s*|S/\s*)?\d[\d.,]*\s*(?:k|K|mil)?)?',
-        re.IGNORECASE,
+    # --- Pattern 2: Currency amount without keyword ---
+    # "45.000€ a 55.000€", "$120,000", "€80.000"
+    currency_pattern = (
+        r'(?:' + CURR_BEFORE + r')?'
+        + NUM + CURR_AFTER
+        + r'(?:' + RANGE + r'(?:' + CURR_BEFORE + r')?' + NUM + CURR_AFTER + r')?'
     )
-    seen = {p[0] for p in patterns}
+    currency_re = re.compile(currency_pattern, re.IGNORECASE)
     for m in currency_re.finditer(text):
         val = m.group(0).strip()
-        if val not in seen:
-            patterns.append((val, 0.8))
-            seen.add(val)
+        if len(val) < 4 or val in seen:
+            continue
+        if not any(c.isdigit() for c in val):
+            continue
+        patterns.append((val, 0.8))
+        seen.add(val)
 
-    # Pattern 3: Ranges like "80k-100k" or "80,000 - 100,000 USD"
-    range_re = re.compile(
-        r'[\d.,]+\s*(?:k|K|mil)\s*[-–aA]\s*[\d.,]+\s*(?:k|K|mil)\s*(?:USD?|EUR|CLP|COP)?',
-        re.IGNORECASE,
-    )
-    for m in range_re.finditer(text):
-        val = m.group(0).strip()
-        if val not in seen:
-            patterns.append((val, 0.85))
-            seen.add(val)
+    # --- Pattern 3: Attach "bruto anual" context ---
+    bruto_re = re.compile(r'(?:bruto|gross)\s*(?:anual|yearly|per\s+year|annual)?', re.IGNORECASE)
+    for m in bruto_re.finditer(text):
+        if patterns:
+            last_val = patterns[-1][0]
+            patterns[-1] = (f"{last_val} bruto anual", 0.9)
 
     return patterns
 
@@ -175,15 +184,16 @@ def _detect_vacancies(title: str, description: str, _meta: dict[str, Any]) -> li
 def _detect_applicants(title: str, description: str, meta: dict[str, Any]) -> list[tuple[str, float]]:
     patterns: list[tuple[str, float]] = []
 
-    # Check metadata first (LinkedIn often provides this)
     if "applicants" in meta:
         val = str(meta["applicants"])
         patterns.append((val, 1.0))
         return patterns
 
-    # Fallback: scan text
     text = f"{title} {description}"
-    app_re = re.compile(r'(\d[\d,.]*)\s*(?:applicant|postulante|persona|people\s+applied|candidatos?)', re.IGNORECASE)
+    app_re = re.compile(
+        r'(\d[\d,.]*)\s*(?:applicant|postulante|persona|people\s+applied|candidatos?)',
+        re.IGNORECASE,
+    )
     for m in app_re.finditer(text):
         patterns.append((m.group(1), 0.8))
 
@@ -198,7 +208,10 @@ def _detect_publication_date(title: str, description: str, meta: dict[str, Any])
         return patterns
 
     text = f"{title} {description}".lower()
-    date_re = re.compile(r'(\d{1,2}\s+(?:de\s+)?(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\w*\.?\s*(?:de\s+)?\d{2,4})', re.IGNORECASE)
+    date_re = re.compile(
+        r'(\d{1,2}\s+(?:de\s+)?(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\w*\.?\s*(?:de\s+)?\d{2,4})',
+        re.IGNORECASE,
+    )
     for m in date_re.finditer(text):
         patterns.append((m.group(1).strip(), 0.8))
 
@@ -206,7 +219,7 @@ def _detect_publication_date(title: str, description: str, meta: dict[str, Any])
 
 
 # ---------------------------------------------------------------------------
-# Default registry (ready to use)
+# Default registry
 # ---------------------------------------------------------------------------
 
 def build_default_registry() -> TagRegistry:
@@ -214,7 +227,7 @@ def build_default_registry() -> TagRegistry:
     reg = TagRegistry()
     reg.register("modalidad", _detect_modality, "Remote/Hybrid/Onsite detection", priority=10)
     reg.register("horario", _detect_schedule, "Full-time/Part-time/Contract", priority=9)
-    reg.register("salario", _detect_salary, "Salary range extraction", priority=8)
+    reg.register("salario", _detect_salary, "Salary range extraction (EUR/USD)", priority=8)
     reg.register("vacantes", _detect_vacancies, "Number of open positions", priority=7)
     reg.register("postulados", _detect_applicants, "Number of applicants", priority=6)
     reg.register("fecha_publicacion", _detect_publication_date, "Publication date", priority=5)
