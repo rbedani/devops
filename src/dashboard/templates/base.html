@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Dashboard</title>
+    <script>
+    (function(){var t=localStorage.getItem('dashboard-theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light')}})();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link rel="stylesheet" href="/static/style.css?v=5">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <svg class="logo" viewBox="0 0 460 105" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Job Dashboard">
+                    <style>
+                        .logo-shadow { fill: var(--logo-shadow); }
+                        .logo-job    { fill: var(--logo-job); }
+                        .logo-dash   { fill: var(--logo-dashboard); }
+                    </style>
+                    <g class="logo-shadow" transform="translate(3, 4)">
+                        <text x="0" y="60" font-family="'Press Start 2P', monospace" font-size="56">JOB</text>
+                        <text x="0" y="88" font-family="'Press Start 2P', monospace" font-size="28">DASHBOARD</text>
+                    </g>
+                    <text class="logo-job" x="0" y="60" font-family="'Press Start 2P', monospace" font-size="56" shape-rendering="crispEdges">JOB</text>
+                    <text class="logo-dash" x="0" y="88" font-family="'Press Start 2P', monospace" font-size="28" shape-rendering="crispEdges">DASHBOARD</text>
+                </svg>
+            </div>
+            <div class="header-right">
+                <label class="debug-checkbox">
+                    <input type="checkbox" id="debug-mode" name="debug_mode">
+                    <span class="debug-label">DEBUG</span>
+                </label>
+                <button class="btn btn-stop" id="stop-btn" style="display:none"
+                        hx-get="/scan/stop" hx-target="#progress-container" hx-swap="innerHTML">STOP</button>
+                <button class="btn btn-clean" id="clean-db-btn" style="display:none"
+                        hx-post="/clean-db" hx-target="#table-container" hx-swap="innerHTML">CLEAN DB</button>
+                <label class="theme-switch">
+                    <input type="checkbox" id="theme-toggle">
+                    <span class="theme-slider"></span>
+                </label>
+                <button class="btn btn-data" id="data-btn">DATA</button>
+            </div>
+        </header>
+        <main id="main-content">
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="dashboard-footer">
+            <span class="footer-stat">{{ total_jobs }} jobs</span>
+            <span class="footer-version">Job Dashboard release v1.0 — 2026-07-25</span>
+            <span class="footer-credit">Created by Rodrigo Daniel Bedani</span>
+        </footer>
+    </div>
+    <script src="/static/script.js?v=3"></script>
+</body>
+</html>

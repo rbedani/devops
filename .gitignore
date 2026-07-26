@@ -46,6 +46,13 @@ htmlcov/
 .env
 .env.*
 !.env.example
+.engram
+
+# Gentle AI system files
+.atl/
+
+# User data
+data/
 
 # OS
 .DS_Store
@@ -56,3 +63,6 @@ Thumbs.db
 
 # mypy
 .mypy_cache/
+
+# Reports
+/reports/

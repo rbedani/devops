@@ -34,6 +34,7 @@ class Job:
     tags: list[JobTag] = field(default_factory=list)
     scraped_at: datetime = field(default_factory=datetime.utcnow)
     id: int | None = None
+    status: str = ""
 
     # -- Tag convenience accessors ------------------------------------------------
 
@@ -79,6 +80,7 @@ class Job:
         d = asdict(self)
         d["tags"] = [{"key": t.key, "value": t.value, "confidence": t.confidence} for t in self.tags]
         d["scraped_at"] = self.scraped_at.isoformat()
+        d["status"] = self.status
         return d
 
     @classmethod
@@ -99,6 +101,7 @@ class Job:
             description=row["description"] or "",
             tags=tags,
             scraped_at=datetime.fromisoformat(row["scraped_at"]),
+            status=row["status"] if "status" in row.keys() else "",
         )
 
     def __repr__(self) -> str:

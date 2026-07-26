@@ -1,0 +1,20 @@
+<div class="platforms-list">
+  {% for platform in platforms %}
+    <div class="platform-item" id="platform-{{ platform.id }}">
+      <span class="platform-item-name">{{ platform.name }}</span>
+      <span class="platform-item-url">{{ platform.url }}</span>
+      <button class="btn btn-platform-remove" hx-post="/datos/platforms/remove/{{ platform.id }}" hx-target="#platforms-section" hx-swap="outerHTML">REMOVE</button>
+    </div>
+  {% endfor %}
+  <form class="platform-add-form" hx-post="/datos/platforms/add" hx-target="#platforms-section" hx-swap="outerHTML">
+    <div class="datos-form-group">
+      <label class="datos-form-label">Platform Name</label>
+      <input class="datos-form-input" type="text" name="name" placeholder="e.g. LinkedIn" required>
+    </div>
+    <div class="datos-form-group">
+      <label class="datos-form-label">URL</label>
+      <input class="datos-form-input" type="url" name="url" placeholder="https://..." required>
+    </div>
+    <button class="btn btn-toggle" type="submit">ADD PLATFORM</button>
+  </form>
+</div>

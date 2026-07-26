@@ -1,0 +1,39 @@
+<div class="table-responsive"><table class="job-table">
+    <thead>
+        <tr>
+            {% if select %}<th class="col-check"><input type="checkbox" id="select-all" class="select-all-cb"></th>{% endif %}
+            <th class="col-date">date_published</th>
+            <th class="col-platform">platform</th>
+            <th class="col-title">title</th>
+            <th class="col-company">company</th>
+            <th class="col-modality">modality</th>
+            <th class="col-salary">salary</th>
+            <th class="col-location">location</th>
+            <th class="col-link">link</th>
+            <th class="col-status">status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr class="job-row">
+            {% if select %}<td class="cell-check"><input type="checkbox" class="job-select" value="{{ job.id }}"></td>{% endif %}
+            <td class="cell-date">{{ job.date_published }}</td>
+            <td class="cell-platform">{{ job.platform }}</td>
+            <td class="cell-title">{{ job.title }}</td>
+            <td class="cell-company">{{ job.company }}</td>
+            <td class="cell-modality">{{ job.modality }}</td>
+            <td class="cell-salary">{{ job.salary }}</td>
+            <td class="cell-location">{{ job.location }}</td>
+            <td class="cell-link"><a href="{{ job.link }}" target="_blank" class="job-link">View</a></td>
+            <td class="cell-status"><span class="status-badge status-{{ job.status|replace(' ', '_') }}">{{ job.status if job.status else "\u2014" }}</span></td>
+        </tr>
+        {% endfor %}
+        {% if not jobs %}
+        <tr>
+            <td colspan="{% if select %}10{% else %}9{% endif %}" class="cell-empty">No jobs found.</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+</div>
+{% include "partials/pagination.html" %}

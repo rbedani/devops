@@ -102,3 +102,41 @@ class TestJobDatabase:
             db.upsert_job(Job(source="test", title="J", url="http://x"))
         # Should be closed after context
         assert db._conn is None
+
+    # -- Status methods (Task 1.2) ------------------------------------------
+
+    def test_update_status_sets_value(self, tmp_db: JobDatabase):
+        """RED: update_status should set the status column."""
+        with tmp_db:
+            row_id = tmp_db.upsert_job(Job(source="test", title="Job A", url="http://x/1"))
+            tmp_db.update_status(row_id, "postulado")
+
+            fetched = tmp_db.get_job_by_url("http://x/1")
+            assert fetched is not None
+            assert fetched.status == "postulado"
+
+    def test_update_status_empty_string(self, tmp_db: JobDatabase):
+        """RED: update_status should allow setting empty string status."""
+        with tmp_db:
+            row_id = tmp_db.upsert_job(Job(source="test", title="Job B", url="http://x/2"))
+            tmp_db.update_status(row_id, "postulado")
+            tmp_db.update_status(row_id, "")
+
+            fetched = tmp_db.get_job_by_url("http://x/2")
+            assert fetched is not None
+            assert fetched.status == ""
+
+    def test_update_status_preserves_other_columns(self, tmp_db: JobDatabase):
+        """TRIANGULATE: update_status should not affect other columns."""
+        with tmp_db:
+            row_id = tmp_db.upsert_job(Job(
+                source="linkedin", title="DevOps Engineer",
+                url="http://x/3", company="Acme",
+            ))
+            tmp_db.update_status(row_id, "general-error")
+
+            fetched = tmp_db.get_job_by_url("http://x/3")
+            assert fetched is not None
+            assert fetched.status == "general-error"
+            assert fetched.title == "DevOps Engineer"
+            assert fetched.company == "Acme"

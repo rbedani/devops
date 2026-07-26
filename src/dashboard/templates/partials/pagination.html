@@ -1,0 +1,31 @@
+<div class="pagination-bar">
+    <div class="pagination-info">
+        Page {{ page }} of {{ total_pages }} — {{ total }} total jobs
+    </div>
+    <div class="pagination-nav">
+        {% if page > 1 %}
+        <a href="#" class="btn btn-page"
+           hx-get="/table?page={{ page - 1 }}&amp;per_page={{ per_page }}&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
+           hx-target="#table-container"
+           hx-include="[name='since'], #search-input">◀ Previous</a>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="#" class="btn btn-page"
+           hx-get="/table?page={{ page + 1 }}&amp;per_page={{ per_page }}&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
+           hx-target="#table-container"
+           hx-include="[name='since'], #search-input">Next ▶</a>
+        {% endif %}
+    </div>
+    <div class="pagination-per-page">
+        <label for="per-page-select">Per page:</label>
+        <select id="per-page-select" class="per-page-select" name="per_page"
+                hx-get="/table?page=1&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
+                hx-target="#table-container">
+            <option value="10" {% if per_page == 10 and not show_all %}selected{% endif %}>10</option>
+            <option value="50" {% if per_page == 50 and not show_all %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 and not show_all %}selected{% endif %}>100</option>
+            <option value="250" {% if per_page == 250 and not show_all %}selected{% endif %}>250</option>
+            <option value="0" {% if show_all %}selected{% endif %}>All</option>
+        </select>
+    </div>
+</div>

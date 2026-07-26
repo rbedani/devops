@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -11,6 +12,38 @@ from src.models.job import Job, JobTag
 
 
 DEFAULT_DB_PATH = Path("jobs.db")
+
+
+def _content_hash(title: str, company: str | None, description: str | None) -> str:
+    """Compute SHA-256 of combined job content for dedup."""
+    raw = f"{title}{company or ''}{description or ''}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _run_content_hash_migration(conn: sqlite3.Connection) -> None:
+    """Add content_hash column and unique index if not present (idempotent).
+
+    Uses CREATE UNIQUE INDEX so that ON CONFLICT(content_hash) works in upsert.
+    """
+    try:
+        conn.execute("ALTER TABLE jobs ADD COLUMN content_hash TEXT")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_content_hash ON jobs(content_hash)")
+    except sqlite3.OperationalError:
+        pass  # Index already exists
+    conn.commit()
+
+
+def _run_status_migration(conn: sqlite3.Connection) -> None:
+    """Add status column if missing (idempotent)."""
+    try:
+        conn.execute("ALTER TABLE jobs ADD COLUMN status TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    conn.commit()
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -22,7 +55,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     location    TEXT,
     description TEXT,
     tags        TEXT    DEFAULT '[]',
-    scraped_at  TEXT    NOT NULL
+    scraped_at  TEXT    NOT NULL,
+    status      TEXT    DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source);
@@ -45,6 +79,8 @@ class JobDatabase:
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.executescript(_SCHEMA)
+            # Add status column if missing (existing DBs)
+            _run_status_migration(self._conn)
         return self._conn
 
     def close(self) -> None:
@@ -62,37 +98,67 @@ class JobDatabase:
     # -- CRUD -------------------------------------------------------------------
 
     def upsert_job(self, job: Job) -> int:
-        """Insert or update a job (matched by URL). Returns the row id."""
+        """Insert or update a job (matched by URL or content_hash). Returns the row id."""
         conn = self.connect()
         tags_json = json.dumps(
             [{"key": t.key, "value": t.value, "confidence": t.confidence} for t in job.tags]
         )
 
-        cursor = conn.execute(
-            """
-            INSERT INTO jobs (source, title, url, company, location, description, tags, scraped_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(url) DO UPDATE SET
-                title       = excluded.title,
-                company     = excluded.company,
-                location    = excluded.location,
-                description = excluded.description,
-                tags        = excluded.tags,
-                scraped_at  = excluded.scraped_at
-            """,
-            (
-                job.source,
-                job.title,
-                job.url,
-                job.company,
-                job.location,
-                job.description,
-                tags_json,
-                job.scraped_at.isoformat(),
-            ),
-        )
-        conn.commit()
-        return cursor.lastrowid  # type: ignore[return-value]
+        # Ensure content_hash column and index exist
+        _run_content_hash_migration(conn)
+
+        h = _content_hash(job.title, job.company, job.description)
+
+        # Check if same content exists under a different URL
+        existing = conn.execute(
+            "SELECT id FROM jobs WHERE content_hash = ?", (h,)
+        ).fetchone()
+
+        if existing:
+            # Update existing row with new URL and data
+            cursor = conn.execute(
+                """
+                UPDATE jobs SET
+                    source = ?, title = ?, url = ?, company = ?, location = ?,
+                    description = ?, tags = ?, scraped_at = ?, content_hash = ?
+                WHERE id = ?
+                """,
+                (
+                    job.source, job.title, job.url, job.company, job.location,
+                    job.description, tags_json, job.scraped_at.isoformat(), h,
+                    existing[0],
+                ),
+            )
+            conn.commit()
+            return cursor.lastrowid  # type: ignore[return-value]
+        else:
+            cursor = conn.execute(
+                """
+                INSERT INTO jobs (source, title, url, company, location, description, tags, scraped_at, content_hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(url) DO UPDATE SET
+                    title       = excluded.title,
+                    company     = excluded.company,
+                    location    = excluded.location,
+                    description = excluded.description,
+                    tags        = excluded.tags,
+                    scraped_at  = excluded.scraped_at,
+                    content_hash = excluded.content_hash
+                """,
+                (
+                    job.source,
+                    job.title,
+                    job.url,
+                    job.company,
+                    job.location,
+                    job.description,
+                    tags_json,
+                    job.scraped_at.isoformat(),
+                    h,
+                ),
+            )
+            conn.commit()
+            return cursor.lastrowid  # type: ignore[return-value]
 
     def upsert_many(self, jobs: Sequence[Job]) -> list[int]:
         """Batch upsert. Returns list of row ids."""
@@ -138,3 +204,13 @@ class JobDatabase:
         cursor = conn.execute("DELETE FROM jobs WHERE url = ?", (url,))
         conn.commit()
         return cursor.rowcount > 0
+
+    def update_status(self, job_id: int, status: str) -> None:
+        """Set the status column for a job row.
+
+        Accepts any status string (including empty string to clear).
+        Preserves all other columns.
+        """
+        conn = self.connect()
+        conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, job_id))
+        conn.commit()

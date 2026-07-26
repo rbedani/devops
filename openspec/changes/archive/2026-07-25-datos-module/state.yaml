@@ -1,0 +1,26 @@
+change: datos-module
+phase: tasks
+artifact_store: hybrid
+chain_strategy: stacked-to-main
+delivery_strategy: auto-forecast
+pr_slice: 1
+pr_slices:
+  1: D1 + D3
+  2: D2 + D4
+  3: D5
+artifacts:
+  exploration: true
+  proposal: true
+  specs: true
+  design: true
+  tasks: true
+tasks_progress:
+  completed: []
+  pending:
+    - D1.1 Models
+    - D1.2 Store
+    - D1.3 Routes
+    - D1.4 Server wiring
+    - D3.1 Content dedup
+    - D3.2 Date filter
+last_updated: 2026-07-25

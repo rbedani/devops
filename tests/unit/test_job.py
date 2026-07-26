@@ -55,3 +55,38 @@ class TestJob:
         assert "test" in r
         assert "Job" in r
         assert "Acme" in r
+
+    # -- Status field (Task 1.3) -------------------------------------------
+
+    def test_status_defaults_to_empty(self):
+        """RED: a new Job should have empty string status."""
+        job = Job(source="test", title="Job", url="http://x")
+        assert job.status == ""
+
+    def test_status_can_be_set(self):
+        """RED: status should be settable via constructor."""
+        job = Job(source="test", title="Job", url="http://x", status="postulado")
+        assert job.status == "postulado"
+
+    def test_status_in_to_dict(self):
+        """RED: to_dict should include status."""
+        job = Job(source="test", title="Job", url="http://x", status="postulado")
+        d = job.to_dict()
+        assert d["status"] == "postulado"
+
+    def test_status_read_from_row(self, tmp_path):
+        """RED: from_row should read the status column."""
+        import sqlite3
+        db_path = tmp_path / "test_status.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, source TEXT, title TEXT, url TEXT, company TEXT, location TEXT, description TEXT, tags TEXT DEFAULT '[]', scraped_at TEXT, status TEXT DEFAULT '')")
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, scraped_at, status) VALUES (?, ?, ?, ?, ?, ?)",
+            ("linkedin", "DevOps", "http://x/1", "Acme", "2024-01-15T10:00:00", "postulado"),
+        )
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM jobs WHERE id = 1").fetchone()
+        conn.close()
+
+        job = Job.from_row(row)
+        assert job.status == "postulado"

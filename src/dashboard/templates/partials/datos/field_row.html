@@ -1,0 +1,28 @@
+<div class="datos-field-row" id="field-row-{{ field.id }}">
+  <input type="hidden" name="field_{{ field.id }}_id" value="{{ field.id }}">
+  <div class="datos-form-group">
+    <label class="datos-form-label">Type</label>
+    <select class="datos-form-select" name="field_{{ field.id }}_type">
+      <option value="text" {% if field.field_type == 'text' %}selected{% endif %}>text</option>
+      <option value="numeric" {% if field.field_type == 'numeric' %}selected{% endif %}>numeric</option>
+      <option value="alphanumeric" {% if field.field_type == 'alphanumeric' %}selected{% endif %}>alphanumeric</option>
+      <option value="date" {% if field.field_type == 'date' %}selected{% endif %}>date</option>
+      <option value="datetime" {% if field.field_type == 'datetime' %}selected{% endif %}>datetime</option>
+      <option value="email" {% if field.field_type == 'email' %}selected{% endif %}>email</option>
+      <option value="phone" {% if field.field_type == 'phone' %}selected{% endif %}>phone</option>
+      <option value="url" {% if field.field_type == 'url' %}selected{% endif %}>url</option>
+      <option value="file" {% if field.field_type == 'file' %}selected{% endif %}>file</option>
+    </select>
+  </div>
+  <div class="datos-form-group">
+    <label class="datos-form-label">Name</label>
+    <input class="datos-form-input" type="text" name="field_{{ field.id }}_name" value="{{ field.name }}" placeholder="Field name">
+  </div>
+  {% if field.field_type != 'file' %}
+  <div class="datos-form-group">
+    <label class="datos-form-label">Value</label>
+    <input class="datos-form-input" type="text" name="field_{{ field.id }}_value" value="{{ field.value }}" placeholder="Value">
+  </div>
+  {% endif %}
+  <button class="btn btn-remove-field" hx-post="/datos/fields/remove/{{ field.id }}" hx-target="#datos-panel" hx-swap="outerHTML">REMOVE</button>
+</div>

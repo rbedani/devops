@@ -1,0 +1,1 @@
+"""Dashboard package — interactive web dashboard for job listings."""

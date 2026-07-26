@@ -1,0 +1,23 @@
+<div class="cv-zone">
+  {% if cv %}
+    <div class="cv-preview">
+      <span class="cv-preview-name">{{ cv.original_name }}</span>
+      <span class="cv-upload-date">{{ cv.uploaded_at[:10] }}</span>
+      <a class="cv-preview-link" href="/datos/cv/preview" target="_blank">PREVIEW</a>
+      <button class="btn btn-cv-delete" hx-post="/datos/cv/delete" hx-target="#cv-section" hx-swap="outerHTML">DELETE</button>
+    </div>
+  {% else %}
+    <div class="cv-upload-prompt">
+      <span class="cv-zone-label">Upload your CV (PDF) — the auto-apply system will use it to apply to jobs</span>
+      <form class="cv-upload-form" hx-post="/datos/cv/upload" hx-target="#cv-section" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+        <label class="cv-file-label btn btn-toggle" tabindex="0">
+          CHOOSE PDF
+          <input class="cv-file-input" type="file" name="file" accept=".pdf" required
+                 hx-trigger="change" hx-post="/datos/cv/upload"
+                 hx-target="#cv-section" hx-swap="outerHTML" hx-encoding="multipart/form-data">
+        </label>
+        <button class="btn btn-scan" type="submit">UPLOAD CV</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
