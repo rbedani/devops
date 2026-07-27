@@ -5,8 +5,9 @@ import asyncio
 import json
 import logging
 
+from src.core.config.settings import DB_PATH
 from src.scrapers.linkedin import LinkedInScraper
-from src.db.database import JobDatabase
+from src.core.db.database import JobDatabase
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -17,7 +18,8 @@ MAX_RESULTS = 10
 
 
 async def main():
-    db = JobDatabase("jobs.db")
+    db = JobDatabase(DB_PATH)
+    db.run_migrations()
 
     async with LinkedInScraper(db=db, headless=True) as scraper:
         logger.info("Scraping LinkedIn for '%s' in '%s'...", QUERY, LOCATION)

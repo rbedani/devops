@@ -1,7 +1,8 @@
-"""Data models for the datos module — profile fields, CV files, scan platforms.
+"""Data models for the datos module — profile fields, CV files.
 
 These dataclasses represent domain entities stored in the jobs.db database
-under three new tables (profile_fields, cv_files, scan_platforms).
+under two tables (profile_fields, cv_files). The ScanPlatform model has been
+moved to src.scan.models as part of the 5-layer architecture extraction.
 """
 
 from __future__ import annotations
@@ -28,13 +29,4 @@ class CVFile:
     original_name: str
     file_path: str
     uploaded_at: str
-    id: int | None = None
-
-
-@dataclass
-class ScanPlatform:
-    """A scan platform configuration (name + URL)."""
-
-    name: str
-    url: str
     id: int | None = None

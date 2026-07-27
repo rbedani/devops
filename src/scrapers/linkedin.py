@@ -12,7 +12,7 @@ from urllib.parse import urlencode
 
 from playwright.async_api import TimeoutError as PwTimeout
 
-from src.models.job import Job
+from src.core.models.job import Job
 from src.scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -45,11 +45,19 @@ class LinkedInScraper(BaseScraper):
         query: str,
         location: str = "",
         max_results: int = 25,
+        extra_params: dict[str, str] | None = None,
     ) -> list[Job]:
-        """Search LinkedIn Jobs and extract listings."""
+        """Search LinkedIn Jobs and extract listings.
+
+        extra_params: Additional LinkedIn search URL parameters
+        (e.g. f_TPR=r604800 for last week, f_WT=2 for remote).
+        These are merged into the search URL query string.
+        """
         params = {"keywords": query}
         if location:
             params["location"] = location
+        if extra_params:
+            params.update(extra_params)
 
         url = f"{LINKEDIN_JOBS_URL}?{urlencode(params)}"
         logger.info("Navigating to: %s", url)

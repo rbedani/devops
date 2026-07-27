@@ -1,6 +1,6 @@
-<div class="data-panel">
+<div class="data-panel" id="datos-panel">
   <div class="menu-row">
-    <button class="btn btn-scan" hx-post="/datos/fields/save" hx-target="#datos-panel" hx-swap="innerHTML" hx-include="[name^='field_']">SAVE</button>
+    <button class="btn btn-scan" hx-post="/datos/fields/save" hx-target="#datos-panel" hx-swap="outerHTML" hx-include="[name^='field_']">SAVE</button>
     <button class="btn btn-toggle" hx-post="/datos/fields/add" hx-target="#field-list" hx-swap="beforeend">ADD FIELD</button>
   </div>
   <div id="field-list" class="section-container">
@@ -10,8 +10,5 @@
   </div>
   <div id="cv-section" class="section-container">
     {% include "partials/datos/cv_section.html" %}
-  </div>
-  <div id="platforms-section" class="section-container">
-    {% include "partials/datos/platforms.html" %}
   </div>
 </div>

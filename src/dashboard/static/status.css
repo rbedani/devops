@@ -1,0 +1,465 @@
+/* =========================================================================
+   Job Dashboard — STATUS Module Styles
+   Table, filter dropdown, pagination, status badges, checkbox, link column.
+   ========================================================================= */
+
+/* -- Filter Dropdown ------------------------------------------------------ */
+
+.filter-wrapper {
+    position: relative;
+    display: inline-block;
+    z-index: 1;
+}
+
+.btn-filter {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 14px;
+    white-space: nowrap;
+}
+
+.btn-filter:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.filter-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 9999;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    min-width: 220px;
+    padding: 6px 0;
+    margin-top: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-system);
+    font-size: 0.8rem;
+    line-height: 1;
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.filter-option:hover {
+    background: var(--bg-hover);
+}
+
+.filter-option input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+}
+
+.btn-page {
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    text-decoration: none;
+}
+
+.btn-page:hover {
+    background: var(--accent-dim);
+}
+
+/* -- Table --------------------------------------------------------------- */
+
+.job-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-muted);
+    overflow: visible;
+}
+
+/* -- Tabla columnas (anchos fijos para que no se muevan al togglear SELECT) -- */
+
+.col-date      { min-width: 90px; }
+.col-platform  { min-width: 80px; }
+.col-title     { min-width: 180px; }
+.col-company   { min-width: 120px; }
+.col-modality  { min-width: 70px; }
+.col-salary    { min-width: 80px; }
+.col-location  { min-width: 100px; }
+.col-link      { min-width: 60px; }
+.col-status    { min-width: 100px; }
+
+.job-table thead th {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 10px 8px;
+    border-bottom: 2px solid var(--border-muted);
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.job-table tbody tr {
+    border-bottom: 1px solid var(--border-muted);
+    transition: background-color 0.15s;
+}
+
+.job-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.job-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.job-table tbody td {
+    padding: 8px;
+    font-size: 0.8rem;
+    vertical-align: middle;
+}
+
+/* -- Data cells (monospace) ---------------------------------------------- */
+
+.cell-date,
+.cell-platform,
+.cell-title,
+.cell-company,
+.cell-modality,
+.cell-salary,
+.cell-location {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+}
+
+.cell-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.cell-date {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.cell-platform {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.cell-company {
+    color: var(--text-secondary);
+}
+
+.cell-modality {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.cell-salary {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.cell-location {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.cell-empty {
+    text-align: center;
+    padding: 40px 16px !important;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+}
+
+/* -- Link column --------------------------------------------------------- */
+
+.job-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-family: var(--font-system);
+    font-size: 0.7rem;
+    padding: 6px 12px;
+    border: 1px solid var(--accent);
+    transition: all 0.2s;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.job-link:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+/* -- Status Badges (flat — just colored text, no badge shape) ------------ */
+
+/* Base .status-badge properties moved to the clickable definition below (line ~352).
+   This comment area preserved for documentation grouping. */
+
+.status-auto-applied {
+    color: var(--status-green);
+}
+
+.status-postulado {
+    color: var(--status-green);
+}
+
+.status-manual_intervention {
+    color: var(--status-yellow);
+}
+
+.status-needs-registration {
+    color: var(--status-yellow);
+}
+
+.status-expired {
+    color: var(--status-gray);
+}
+
+.status-auto-apply-failed-unavailable {
+    color: var(--status-red);
+}
+
+.status-general-error {
+    color: var(--status-red);
+}
+
+.status-error {
+    color: var(--status-red);
+}
+
+.status- {
+    color: var(--status-gray);
+}
+
+/* -- Checkbox column ----------------------------------------------------- */
+
+.col-check,
+.cell-check {
+    width: 40px;
+    min-width: 40px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.col-check {
+    padding: 10px 0;
+}
+
+.cell-check {
+    padding: 8px 0;
+}
+
+.col-check {
+    text-align: center;
+}
+
+.select-all-cb,
+.job-select {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* -- Pagination (flat, no box) ------------------------------------------- */
+
+.pagination-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    margin-top: 12px;
+}
+
+.pagination-info {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.pagination-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.pagination-per-page {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.per-page-select {
+    padding: 4px 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.per-page-select:focus {
+    border-color: var(--accent);
+}
+
+/* -- Status Badge (clickable) -------------------------------------------- */
+
+.cell-status { position: relative; }
+.status-badge {
+    cursor: pointer;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+    transition: opacity 0.2s;
+    text-transform: uppercase;
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.status-badge:hover { opacity: 0.8; }
+.status-badge.status-none { background: var(--bg-tertiary); color: var(--text-secondary); }
+.status-badge.status-postulado { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.status-badge.status-rechazado { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.status-badge.status-pendiente { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+.status-badge.status-no-aplica { background: rgba(107, 114, 128, 0.2); color: #6b7280; }
+
+/* -- Status Menu (dropdown on click) ------------------------------------- */
+
+.status-menu {
+    position: absolute;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    z-index: 100;
+    min-width: 160px;
+}
+
+.status-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.3rem 0.6rem;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+}
+.status-menu button:hover { background: var(--bg-hover); }
+
+/* -- Sort Config UI -------------------------------------------------------- */
+
+#sort-config-container {
+    margin: 8px 0;
+}
+
+.sort-level {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.sort-level .sort-col-select {
+    flex: 2;
+    min-width: 140px;
+}
+
+.sort-level .sort-dir-select {
+    flex: 1;
+    min-width: 70px;
+}
+
+.sort-remove-btn {
+    background: transparent;
+    color: var(--status-red);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 6px 10px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.sort-remove-btn:hover {
+    background: var(--status-red);
+    color: #fff;
+    border-color: var(--status-red);
+}
+
+.btn-sort-add {
+    margin-top: 6px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-dim);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 6px 14px;
+    transition: all 0.15s;
+}
+
+.btn-sort-add:hover {
+    background: var(--accent-dim);
+    color: var(--accent);
+}
+
+/* -- Sort Indicators ----------------------------------------------------- */
+
+.th-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.th-sortable:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Active sorted column header gets accent color (indicator arrows are inline text in template) */
+.job-table thead th.th-sortable:has(↑),
+.job-table thead th.th-sortable:has(↓) {
+    color: var(--accent);
+}

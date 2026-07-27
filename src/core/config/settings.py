@@ -1,4 +1,9 @@
-"""Configuration loader for the devops framework."""
+"""Configuration loader for the devops framework.
+
+Centralized path resolution for the entire project.
+All CWD-relative paths are consolidated here, resolved from PROJECT_ROOT.
+No module should use os.getcwd() or bare relative paths.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +13,16 @@ from pathlib import Path
 from dataclasses import dataclass, field
 
 
-CONFIG_DIR = Path(__file__).parent
-PROJECT_ROOT = CONFIG_DIR.parent.parent
+# -- Project root detection ---------------------------------------------------
+# This file lives at PROJECT_ROOT/src/core/config/settings.py
+HERE = Path(__file__).resolve().parent  # src/core/config/
+PROJECT_ROOT = HERE.parent.parent.parent  # project root
+
+# -- Application paths (centralized — no CWD-relative paths elsewhere) --------
+DB_PATH = PROJECT_ROOT / "jobs.db"
+DATA_DIR = PROJECT_ROOT / "data"
+CV_DIR = DATA_DIR / "cv"
+TARGETS_PATH = PROJECT_ROOT / "config" / "targets.json"
 VAULT_FILE = PROJECT_ROOT / ".secrets.yml"
 
 
@@ -37,7 +50,7 @@ class AppConfig:
 
     scraper: ScraperConfig = field(default_factory=ScraperConfig)
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
-    db_path: str = "jobs.db"
+    db_path: str = str(DB_PATH)
 
 
 def load_vault_secret(vault_file: Path | str = VAULT_FILE, key: str = "") -> str:
@@ -78,6 +91,6 @@ def load_config(config_path: Path | str | None = None) -> AppConfig:
         return AppConfig(
             scraper=ScraperConfig(**data.get("scraper", {})),
             telegram=TelegramConfig(**data.get("telegram", {})),
-            db_path=data.get("db_path", "jobs.db"),
+            db_path=data.get("db_path", str(DB_PATH)),
         )
     return AppConfig()

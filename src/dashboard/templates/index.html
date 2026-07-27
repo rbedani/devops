@@ -5,32 +5,15 @@
         <input type="text" id="search-input" class="search-box" placeholder="Search title / company..."
                name="search"
                hx-get="/table" hx-trigger="keyup changed delay:2000ms" hx-target="#table-container"
-               hx-include="[name='per_page']" hx-push-url="true">
+               hx-include="[name='per_page'], [name='since'], #filter-state"
+               hx-push-url="true">
 
-        <select id="platform-select" class="platform-select" name="platforms" multiple size="1" style="height:34px">
-            <option value="linkedin" selected>LinkedIn</option>
-        </select>
-
-        <select name="since" class="date-filter"
-                hx-get="/table" hx-trigger="change" hx-target="#table-container"
-                hx-include="[name='search'], [name='since']">
+        <select name="since" class="date-filter">
             <option value="" selected>Any date</option>
             <option value="24h">Last 24h</option>
             <option value="7d">Last week</option>
             <option value="30d">Last month</option>
         </select>
-
-        <button class="btn btn-scan" hx-get="/scan" hx-target="#progress-container" hx-swap="innerHTML"
-                hx-include="#search-input, #debug-mode, #platform-select" id="scan-btn"
-                {% if scan_running %}disabled{% endif %}>
-            SCAN
-        </button>
-
-        <button class="btn btn-toggle"
-                hx-get="/select/toggle?enabled=true"
-                hx-target="#table-container" hx-swap="innerHTML">
-            SELECT
-        </button>
 
         <div class="filter-wrapper" id="filter-wrapper">
             <button class="btn btn-filter" id="filter-btn" type="button">FILTER ▾</button>
@@ -44,13 +27,18 @@
             </div>
         </div>
 
-        <button class="btn btn-apply" id="auto-apply-btn" disabled title="Auto-Apply (next session)">
-            AUTO-APPLY
+        <button class="btn btn-refresh" id="refresh-btn"
+                hx-get="/table"
+                hx-include="[name='search'], [name='since'], [name='per_page'], #filter-state"
+                hx-target="#table-container" hx-swap="innerHTML"
+                title="Refresh table with current filters">
+            ↻ REFRESH
         </button>
+
+        <!-- Hidden field to carry active filter state for HTMX includes -->
+        <input type="hidden" id="filter-state" name="filters" value="">
     </div>
 </div>
-
-<div id="progress-container"></div>
 
 <div id="table-container"
      hx-get="/table"

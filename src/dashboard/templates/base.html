@@ -12,7 +12,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <link rel="stylesheet" href="/static/style.css?v=5">
+    <link rel="stylesheet" href="/static/base.css?v=6">
+    <link rel="stylesheet" href="/static/status.css?v=6">
+    <link rel="stylesheet" href="/static/scan.css?v=6">
+    <link rel="stylesheet" href="/static/datos.css?v=6">
+    <link rel="stylesheet" href="/static/responsive.css?v=6">
 </head>
 <body>
     <div class="dashboard-shell">
@@ -33,21 +37,35 @@
                 </svg>
             </div>
             <div class="header-right">
-                <label class="debug-checkbox">
-                    <input type="checkbox" id="debug-mode" name="debug_mode">
-                    <span class="debug-label">DEBUG</span>
-                </label>
-                <button class="btn btn-stop" id="stop-btn" style="display:none"
-                        hx-get="/scan/stop" hx-target="#progress-container" hx-swap="innerHTML">STOP</button>
-                <button class="btn btn-clean" id="clean-db-btn" style="display:none"
-                        hx-post="/clean-db" hx-target="#table-container" hx-swap="innerHTML">CLEAN DB</button>
-                <label class="theme-switch">
-                    <input type="checkbox" id="theme-toggle">
-                    <span class="theme-slider"></span>
-                </label>
-                <button class="btn btn-data" id="data-btn">DATA</button>
             </div>
         </header>
+        <nav class="tab-bar" hx-boost="false">
+            <button class="tab tab-active"
+                    hx-get="/status/panel"
+                    hx-target="#main-content"
+                    hx-trigger="click"
+                    hx-swap="innerHTML"
+                    data-tab="status"
+                    autofocus>STATUS</button>
+            <button class="tab"
+                    hx-get="/scan/config"
+                    hx-target="#main-content"
+                    hx-trigger="click"
+                    hx-swap="innerHTML"
+                    data-tab="scan">SCAN</button>
+            <button class="tab"
+                    hx-get="/datos/panel"
+                    hx-target="#main-content"
+                    hx-trigger="click"
+                    hx-swap="innerHTML"
+                    data-tab="datos">DATA</button>
+            <button class="tab"
+                    hx-get="/settings"
+                    hx-target="#main-content"
+                    hx-trigger="click"
+                    hx-swap="innerHTML"
+                    data-tab="settings">SETTINGS</button>
+        </nav>
         <main id="main-content">
             {% block content %}{% endblock %}
         </main>
@@ -57,6 +75,6 @@
             <span class="footer-credit">Created by Rodrigo Daniel Bedani</span>
         </footer>
     </div>
-    <script src="/static/script.js?v=3"></script>
+    <script src="/static/script.js?v=5"></script>
 </body>
 </html>

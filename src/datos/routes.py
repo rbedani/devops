@@ -1,37 +1,39 @@
-"""FastAPI routes for the datos module — profile fields, CV, scan platforms.
+"""FastAPI routes for the datos module — profile fields, CV.
 
 All routes return HTMX-compatible HTML partials.
+The scan platform routes have been moved to src.scan.routes as part of
+the 5-layer architecture extraction.
 """
 
 from __future__ import annotations
 
 import os
 import re
+import shutil
 import uuid
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
+from starlette.datastructures import FormData
 
+from src.core.config.settings import DB_PATH as _CORE_DB_PATH, CV_DIR as _CORE_CV_DIR
 from src.datos.store import (
     add_field,
-    add_platform,
     delete_cv,
     get_connection,
     get_cv,
     get_fields,
-    get_platforms,
     remove_field,
-    remove_platform,
     save_cv,
     save_fields,
 )
 
 # -- Paths -------------------------------------------------------------------
 
-HERE = Path(__file__).parent.parent
-TEMPLATE_DIR = HERE / "dashboard" / "templates"
-CV_DIR = Path("data") / "cv"
+TEMPLATE_DIR = Path(__file__).parent.parent / "dashboard" / "templates"
+CV_DIR = _CORE_CV_DIR
 
 # -- Templates ---------------------------------------------------------------
 
@@ -43,7 +45,7 @@ templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 datos_router = APIRouter(tags=["datos"])
 
 # Make DB_PATH patchable (same as server.py pattern)
-DB_PATH = "jobs.db"
+DB_PATH: str = str(_CORE_DB_PATH)
 
 # -- Helpers -----------------------------------------------------------------
 
@@ -62,6 +64,33 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _DATETIME_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$"
 )
+
+_FIELD_PREFIX_RE = re.compile(r"^field_(\d+)_(id|type|name|value)$")
+
+
+def _parse_flat_form_fields(form: FormData) -> list[dict[str, Any]]:
+    """Convert flat HTMX form fields (field_1_id, field_1_name, ...) into
+    the structured format expected by save_fields."""
+    fields: dict[int, dict[str, Any]] = {}
+    for key in form:
+        m = _FIELD_PREFIX_RE.match(key)
+        if not m:
+            continue
+        field_id = int(m.group(1))
+        attr = m.group(2)
+        if field_id not in fields:
+            fields[field_id] = {
+                "id": field_id, "name": "", "field_type": "text",
+                "value": "", "position": 0,
+            }
+        value = form[key]
+        if attr == "id":
+            fields[field_id]["id"] = int(value)
+        elif attr == "type":
+            fields[field_id]["field_type"] = value
+        else:
+            fields[field_id][attr] = value
+    return list(fields.values())
 
 
 def _validate_field_value(field_type: str, value: str) -> str | None:
@@ -103,11 +132,10 @@ async def datos_panel(request: Request) -> HTMLResponse:
     conn = _get_conn()
     fields = get_fields(conn)
     cv = get_cv(conn)
-    platforms = get_platforms(conn)
     conn.close()
     return templates.TemplateResponse(
         request, "partials/datos/panel.html",
-        {"fields": fields, "cv": cv, "platforms": platforms},
+        {"fields": fields, "cv": cv},
     )
 
 
@@ -129,8 +157,13 @@ async def datos_fields(request: Request) -> HTMLResponse:
 @datos_router.post("/datos/fields/save", response_class=HTMLResponse)
 async def datos_fields_save(request: Request) -> HTMLResponse:
     """Save all fields — validates values against types, then persists."""
-    data = await request.json()
-    fields_data = data.get("fields", [])
+    content_type = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in content_type:
+        form = await request.form()
+        fields_data = _parse_flat_form_fields(form)
+    else:
+        data = await request.json()
+        fields_data = data.get("fields", [])
 
     # Validate each field's value against its type
     for f in fields_data:
@@ -143,12 +176,11 @@ async def datos_fields_save(request: Request) -> HTMLResponse:
         save_fields(conn, fields_data)
         fields = get_fields(conn)
         cv = get_cv(conn)
-        platforms = get_platforms(conn)
     finally:
         conn.close()
     return templates.TemplateResponse(
         request, "partials/datos/panel.html",
-        {"fields": fields, "cv": cv, "platforms": platforms},
+        {"fields": fields, "cv": cv},
     )
 
 
@@ -187,12 +219,11 @@ async def datos_fields_remove(request: Request, field_id: int) -> HTMLResponse:
         remove_field(conn, field_id)
         fields = get_fields(conn)
         cv = get_cv(conn)
-        platforms = get_platforms(conn)
     finally:
         conn.close()
     return templates.TemplateResponse(
         request, "partials/datos/panel.html",
-        {"fields": fields, "cv": cv, "platforms": platforms},
+        {"fields": fields, "cv": cv},
     )
 
 
@@ -228,10 +259,9 @@ async def datos_cv_upload(
     disk_path = CV_DIR / f"{file_uuid}.pdf"
 
     # Save to disk
+    if file.size and file.size > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large")
     content = await file.read()
-    MAX_CV_SIZE = 10 * 1024 * 1024  # 10MB
-    if len(content) > MAX_CV_SIZE:
-        raise HTTPException(status_code=413, detail="CV file exceeds 10MB limit")
     with open(str(disk_path), "wb") as f:
         f.write(content)
 
@@ -288,60 +318,46 @@ async def datos_cv_preview(request: Request):
     return FileResponse(cv.file_path, media_type="application/pdf")
 
 
-# -- Platforms ----------------------------------------------------------------
+# ===========================================================================
+# CLEAN — eliminar datos personales
+# ===========================================================================
 
 
-@datos_router.get("/datos/platforms", response_class=HTMLResponse)
-async def datos_platforms(request: Request) -> HTMLResponse:
-    """Platform list partial."""
-    conn = _get_conn()
-    platforms = get_platforms(conn)
-    conn.close()
-    return templates.TemplateResponse(
-        request, "partials/datos/platforms.html",
-        {"platforms": platforms},
-    )
+@datos_router.post("/datos/clean", response_class=HTMLResponse)
+async def datos_clean(request: Request) -> HTMLResponse:
+    """Delete ALL personal data: profile fields, CV files, and CV files on disk.
 
-
-@datos_router.post("/datos/platforms/add", response_class=HTMLResponse)
-async def datos_platforms_add(
-    request: Request,
-    name: str = Form(...),
-    url: str = Form(...),
-) -> HTMLResponse:
-    """Add a new platform."""
-    # Validate URL format
-    if not (url.startswith("http://") or url.startswith("https://")):
-        return HTMLResponse("Invalid URL format", status_code=400)
-    if not _URL_RE.match(url):
-        return HTMLResponse("Invalid URL format", status_code=400)
-
+    This is the "clean personal data" button in Settings.
+    After deletion the datos tables are empty and the CV directory is cleared.
+    """
     conn = _get_conn()
     try:
-        add_platform(conn, name, url)
-    except Exception:
-        return HTMLResponse("Platform already exists", status_code=400)
-    finally:
-        platforms = get_platforms(conn)
-        conn.close()
-    return templates.TemplateResponse(
-        request, "partials/datos/platforms.html",
-        {"platforms": platforms},
-    )
+        # 1. Delete CV files from disk first
+        cv = get_cv(conn)
+        if cv and cv.file_path:
+            try:
+                if os.path.isfile(cv.file_path):
+                    os.remove(cv.file_path)
+                # Also remove the parent CV directory tree if it exists
+                cv_dir = Path(cv.file_path).parent
+                if cv_dir.exists() and cv_dir.is_dir():
+                    shutil.rmtree(str(cv_dir), ignore_errors=True)
+            except (OSError, PermissionError):
+                pass
 
+        # 2. Wipe CV directory entirely
+        cv_dir_path = Path(str(CV_DIR))
+        if cv_dir_path.exists():
+            shutil.rmtree(str(cv_dir_path), ignore_errors=True)
 
-@datos_router.post("/datos/platforms/remove/{platform_id}", response_class=HTMLResponse)
-async def datos_platforms_remove(
-    request: Request, platform_id: int,
-) -> HTMLResponse:
-    """Remove a platform by id."""
-    conn = _get_conn()
-    try:
-        remove_platform(conn, platform_id)
-        platforms = get_platforms(conn)
+        # 3. Delete all profile_fields and cv_files
+        conn.execute("DELETE FROM profile_fields")
+        conn.execute("DELETE FROM cv_files")
+        conn.commit()
     finally:
         conn.close()
+
     return templates.TemplateResponse(
-        request, "partials/datos/platforms.html",
-        {"platforms": platforms},
+        request, "settings.html",
+        {"request": request, "cleaned": "datos"},
     )

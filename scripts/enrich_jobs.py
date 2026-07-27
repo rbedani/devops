@@ -6,15 +6,17 @@ import json
 import logging
 from datetime import datetime
 
+from src.core.config.settings import DB_PATH
 from src.scrapers.linkedin import LinkedInScraper
-from src.db.database import JobDatabase
+from src.core.db.database import JobDatabase, run_migrations
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
 async def main():
-    db = JobDatabase("jobs.db")
+    db = JobDatabase(DB_PATH)
+    run_migrations(DB_PATH)
 
     # Load all jobs from DB
     with db:

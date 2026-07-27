@@ -9,7 +9,7 @@
       "date_range": "last_week"
     },
     "max_results": 25,
-    "enabled": true,
+    "enabled": false,
     "tags": ["devops", "españa", "remoto"]
   },
   {
@@ -22,7 +22,33 @@
       "date_range": "last_week"
     },
     "max_results": 25,
-    "enabled": true,
+    "enabled": false,
     "tags": ["devops", "spain", "remote"]
+  },
+  {
+    "name": "devops_infojobs_españa",
+    "platform": "infojobs",
+    "filters": {
+      "keywords": ["devops", "ansible"],
+      "countries": ["España"],
+      "modalities": ["remoto"],
+      "date_range": "last_week"
+    },
+    "max_results": 10,
+    "enabled": false,
+    "tags": ["devops", "infojobs", "españa"]
+  },
+  {
+    "name": "devops_indeed_espana",
+    "platform": "indeed",
+    "filters": {
+      "keywords": ["devops", "cloud", "sre"],
+      "countries": ["Madrid"],
+      "modalities": [],
+      "date_range": "last_week"
+    },
+    "max_results": 25,
+    "enabled": true,
+    "tags": ["devops", "indeed", "españa"]
   }
 ]

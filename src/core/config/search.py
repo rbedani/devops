@@ -61,6 +61,61 @@ class SearchFilters:
 
         return params
 
+    def to_infojobs_params(self) -> dict[str, str]:
+        """Convert filters to InfoJobs search URL parameters."""
+        params: dict[str, str] = {}
+
+        if self.keywords:
+            params["keyword"] = " ".join(self.keywords)
+
+        # InfoJobs uses city facet for location
+        if self.countries:
+            params["city"] = ", ".join(self.countries)
+
+# InfoJobs doesn't have a direct modality filter like LinkedIn.
+        # Modality keywords are added to the search query.
+        if self.modalities:
+            modality_keywords = " ".join(self.modalities)
+            if params.get("keyword"):
+                params["keyword"] += " " + modality_keywords
+            else:
+                params["keyword"] = modality_keywords
+
+        return params
+
+    def to_indeed_params(self) -> dict[str, str]:
+        """Convert filters to Indeed search URL parameters."""
+        params: dict[str, str] = {}
+
+        if self.keywords:
+            params["q"] = " ".join(self.keywords)
+
+        if self.countries:
+            params["l"] = ", ".join(self.countries)
+
+        # Indeed date filter codes (fromage parameter in days)
+        date_map = {
+            "last_24h": "1",
+            "last_week": "7",
+            "last_month": "30",
+        }
+        if self.date_range and self.date_range in date_map:
+            params["fromage"] = date_map[self.date_range]
+
+        # Modality filter (best-effort; silently skip unknown values)
+        mod_map = {
+            "remoto": "work-from-home",
+            "remote": "work-from-home",
+            "presencial": "on-site",
+            "onsite": "on-site",
+        }
+        if self.modalities:
+            codes = [mod_map[m.lower()] for m in self.modalities if m.lower() in mod_map]
+            if codes:
+                params["jt"] = ",".join(codes)
+
+        return params
+
     def matches_job(self, job: Any) -> bool:
         """Check if a scraped job matches this filter set.
 

@@ -1,0 +1,283 @@
+/* =========================================================================
+   Job Dashboard — SCAN Module Styles
+   Progress bar, dino banner, platform select, save button, toast.
+   ========================================================================= */
+
+/* -- Save Button + Toast ------------------------------------------------- */
+
+.save-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-muted);
+}
+
+.btn-save {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border: none;
+    padding: 8px 20px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+
+.btn-save:hover {
+    filter: brightness(1.15);
+}
+
+.save-toast-container {
+    display: inline-block;
+    min-width: 60px;
+}
+
+.save-toast {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--status-green);
+    font-weight: 700;
+    animation: fade-out 2s forwards;
+}
+
+@keyframes fade-out {
+    0% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* -- Platform Select (multi-select combo) ------------------------------- */
+
+.platform-select {
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--font-system);
+    font-size: 0.7rem;
+    text-align: center;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-width: 120px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.platform-select:focus {
+    border-color: var(--accent);
+}
+
+/* -- Progress Bar (thin line with neon glow) ----------------------------- */
+
+#progress-container {
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    position: relative;
+}
+
+.scan-progress {
+    position: relative;
+    height: 3px;
+    width: 100%;
+    background: transparent;
+    overflow: hidden;
+}
+
+.scan-progress .progress-track {
+    height: 100%;
+    width: 100%;
+    background: var(--border-muted);
+}
+
+.scan-progress .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.6), 0 0 16px rgba(168, 85, 247, 0.3);
+    transition: width 0.3s ease;
+}
+
+[data-theme="light"] .scan-progress .progress-fill {
+    box-shadow: 0 0 8px rgba(0, 122, 255, 0.6), 0 0 16px rgba(0, 122, 255, 0.3);
+}
+
+.scan-progress-done .progress-fill {
+    background: var(--status-green);
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    animation: none;
+}
+
+.scan-progress-error .progress-fill {
+    background: var(--status-red);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    animation: none;
+}
+
+/* -- Dino Banner (below progress bar, 0->160px expand/collapse) ------
+   Chrome Dino-style pixel animation banner. Starts at 0 height, expands
+   to 160px during scan, collapses back to 0 on completion.
+   ========================================================================= */
+
+#dino-banner {
+    height: 0;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-secondary);
+    transition: height 0.3s ease;
+}
+
+#dino-banner.expanded {
+    height: 160px;
+}
+
+#dino-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    image-rendering: pixelated;
+    z-index: 1;
+}
+
+/* -- Scan Tab Layout ----------------------------------------------------- */
+
+.scan-tab {
+    padding: 16px;
+}
+
+.scan-tab h2 {
+    font-family: var(--font-system);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+}
+
+/* -- Config Form Sections ------------------------------------------------ */
+
+.scan-section {
+    border: 1px solid var(--border-muted);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.scan-section legend {
+    font-family: var(--font-system);
+    font-size: 0.65rem;
+    font-weight: bold;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 0 0.5rem;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.form-row label {
+    min-width: 120px;
+    font-weight: 600;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+.form-row input[type="text"],
+.form-row select {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-muted);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-row input[type="text"]:focus,
+.form-row select:focus {
+    border-color: var(--accent);
+}
+
+.form-row input[type="text"]::placeholder {
+    color: var(--text-dim);
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+
+.platforms-container {
+    min-height: 40px;
+}
+
+/* -- Scan Controls -------------------------------------------------------- */
+
+.scan-controls {
+    display: flex;
+    gap: 10px;
+    padding: 16px 0;
+    align-items: center;
+}
+
+/* -- Scan Log Viewer ----------------------------------------------------- */
+
+.scan-log {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
+}
+
+.scan-log h3 {
+    font-family: var(--font-system);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.scan-log-output {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    padding: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+/* Mobile: smaller banner */
+@media (max-width: 768px) {
+    #dino-banner.expanded {
+        height: 100px;
+    }
+}

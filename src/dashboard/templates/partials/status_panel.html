@@ -1,0 +1,47 @@
+<div class="header-menu">
+    <div class="menu-row">
+        <input type="text" id="search-input" class="search-box" placeholder="Search title / company..."
+               name="search"
+               hx-get="/table" hx-trigger="keyup changed delay:2000ms" hx-target="#table-container"
+               hx-include="[name='per_page'], [name='since'], #filter-state, #sort-state"
+               hx-push-url="true">
+
+        <select name="since" class="date-filter">
+            <option value="">Any date</option>
+            <option value="24h">Last 24h</option>
+            <option value="7d">Last week</option>
+            <option value="30d">Last month</option>
+        </select>
+
+        <div class="filter-wrapper" id="filter-wrapper">
+            <button class="btn btn-filter" id="filter-btn" type="button">FILTER ▾</button>
+            <div class="filter-dropdown" id="filter-menu" style="display:none;">
+                {% for filter in filters %}
+                <label class="filter-option">
+                    <input type="checkbox" class="filter-checkbox" data-filter-key="{{ filter.key }}"
+                           {% if filter.key in active_filters %}checked{% endif %}>
+                    {{ filter.label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <button class="btn btn-refresh" id="refresh-btn"
+                hx-get="/table"
+                hx-include="[name='search'], [name='since'], [name='per_page'], #filter-state, #sort-state"
+                hx-target="#table-container" hx-swap="innerHTML"
+                title="Refresh table with current filters">
+            ↻ REFRESH
+        </button>
+
+        <!-- Hidden fields to carry active filter state and sort state for HTMX includes -->
+        <input type="hidden" id="filter-state" name="filters" value="{{ active_filters|join(',') }}">
+        <input type="hidden" id="sort-state" name="sort" value="">
+    </div>
+</div>
+
+<div id="table-container"
+     hx-get="/table"
+     hx-trigger="load"
+     hx-include="[name='since'], #sort-state"
+     hx-swap="innerHTML"></div>

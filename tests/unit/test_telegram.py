@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.models.job import Job
+from src.core.models.job import Job
 from src.alerts.telegram import format_job_alert, format_jobs_table, format_jobs_markdown_table
 
 

@@ -3,7 +3,7 @@
 import json
 import pytest
 
-from src.models.job import Job, JobTag
+from src.core.models.job import Job, JobTag
 
 
 class TestJobTag:

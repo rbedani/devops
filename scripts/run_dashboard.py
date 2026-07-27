@@ -8,6 +8,13 @@ Defaults to port 3311 if DASHBOARD_PORT is not set.
 """
 
 import os
+import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path so uvicorn can resolve "src.dashboard.server"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+
 import uvicorn
 
 

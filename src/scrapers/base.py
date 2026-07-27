@@ -16,8 +16,8 @@ from typing import Any
 
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 
-from src.models.job import Job
-from src.db.database import JobDatabase
+from src.core.models.job import Job
+from src.core.db.database import JobDatabase
 from src.tags.detector import TagRegistry, build_default_registry
 
 logger = logging.getLogger(__name__)
@@ -81,13 +81,17 @@ class BaseScraper(ABC):
 
     def auto_detect_tags(self, job: Job) -> Job:
         """Run all registered tag detectors on a job and attach results."""
+        metadata = {}
+        applicants = job.get_tag("postulados")
+        if applicants is not None:
+            metadata["applicants"] = applicants
+        published_date = job.get_tag("fecha_publicacion")
+        if published_date is not None:
+            metadata["published_date"] = published_date
         detected = self.registry.detect_all(
             title=job.title,
             description=job.description,
-            metadata={
-                "applicants": job.get_tag("postulados"),
-                "published_date": job.get_tag("fecha_publicacion"),
-            },
+            metadata=metadata,
         )
         for tag in detected:
             existing = job.get_tag(tag.key)

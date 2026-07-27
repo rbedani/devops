@@ -1,0 +1,280 @@
+/* =========================================================================
+   Job Dashboard — Responsive Styles
+   All @media queries for tablet, mobile, and small screen breakpoints.
+   ========================================================================= */
+
+/* Tablet landscape / small desktop */
+@media (max-width: 1024px) {
+    .dashboard-shell {
+        padding: 0 12px;
+    }
+
+    .dashboard-header .logo {
+        height: 68px;
+    }
+}
+
+/* Tablet portrait */
+@media (max-width: 768px) {
+    .dashboard-header .logo {
+        height: 56px;
+    }
+
+    .menu-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .menu-row .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .search-box {
+        flex: 1 1 auto;
+    }
+
+    .pagination-bar {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+
+    .pagination-nav {
+        justify-content: center;
+    }
+
+    .debug-checkbox {
+        align-self: flex-start;
+    }
+
+    /* Table: horizontal scroll on all tablets */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
+
+    .table-responsive::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--border-muted);
+        border-radius: 2px;
+    }
+}
+
+/* iPhone / large phones */
+@media (max-width: 480px) {
+    .dashboard-shell {
+        padding: 0 8px;
+    }
+
+    /* -- Header -- */
+    .dashboard-header {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 0;
+    }
+
+    .dashboard-header .logo {
+        height: 40px;
+        max-width: 70vw;
+    }
+
+    .header-right {
+        gap: 8px;
+    }
+
+    .theme-switch {
+        width: 36px;
+        height: 20px;
+    }
+
+    .theme-slider::before {
+        width: 10px;
+        height: 10px;
+    }
+
+    .theme-switch input:checked + .theme-slider::before {
+        transform: translateX(20px);
+    }
+
+    /* -- Menu -- */
+    .menu-row {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .menu-row .btn {
+        font-size: 0.5rem;
+        padding: 12px 10px;
+        min-height: 44px;
+        white-space: normal;
+        word-break: keep-all;
+    }
+
+    .search-box {
+        font-size: 16px; /* previene zoom automático de iOS al focus */
+        min-height: 44px;
+        flex: 1 1 auto;
+    }
+
+    .platform-select {
+        font-size: 16px;
+        min-height: 44px;
+        width: 100%;
+    }
+
+    .debug-checkbox {
+        align-self: flex-start;
+        padding: 6px 10px;
+    }
+
+    .debug-label {
+        font-size: 0.75rem;
+    }
+
+    /* -- Table: ocultar columnas secundarias, agrandar celdas clave -- */
+    .table-responsive {
+        margin: 0 -8px;
+        padding: 0 8px;
+    }
+
+    .col-modality, .cell-modality,
+    .col-salary,   .cell-salary,
+    .col-location, .cell-location,
+    .col-date,     .cell-date {
+        display: none;
+    }
+
+    .job-table thead th,
+    .job-table tbody td {
+        padding: 8px 4px;
+        font-size: 0.7rem;
+    }
+
+    .job-table thead th {
+        font-size: 0.6rem;
+        letter-spacing: 1px;
+    }
+
+    .cell-title {
+        font-size: 0.75rem;
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cell-company {
+        font-size: 0.7rem;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cell-platform {
+        font-size: 0.6rem;
+    }
+
+    .cell-check {
+        width: 28px !important;
+    }
+
+    .select-all-cb,
+    .job-select {
+        width: 18px;
+        height: 18px;
+    }
+
+    .job-link {
+        font-size: 0.65rem;
+        padding: 6px 8px;
+    }
+
+    .cell-empty {
+        font-size: 0.75rem;
+        padding: 24px 12px !important;
+    }
+
+    /* -- Pagination -- */
+    .pagination-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 0;
+    }
+
+    .pagination-info {
+        font-size: 0.65rem;
+        text-align: center;
+    }
+
+    .pagination-nav {
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .btn-page {
+        font-size: 0.55rem;
+        padding: 10px 12px;
+        min-height: 44px;
+    }
+
+    .pagination-per-page {
+        justify-content: center;
+        font-size: 0.65rem;
+    }
+
+    .per-page-select {
+        font-size: 16px;
+        min-height: 44px;
+        padding: 6px 10px;
+    }
+
+    /* -- Footer -- */
+    .dashboard-footer {
+        padding: 12px 0;
+        gap: 2px;
+    }
+
+    .footer-stat {
+        font-size: 0.65rem;
+    }
+
+    .footer-version {
+        font-size: 0.6rem;
+    }
+}
+
+/* iPhone SE / very small screens */
+@media (max-width: 374px) {
+    .dashboard-header .logo {
+        height: 32px;
+        max-width: 65vw;
+    }
+
+    .menu-row .btn {
+        font-size: 0.45rem;
+        padding: 10px 6px;
+    }
+
+    .cell-title {
+        max-width: 80px;
+        font-size: 0.65rem;
+    }
+
+    .cell-company {
+        max-width: 70px;
+    }
+
+    .job-table thead th,
+    .job-table tbody td {
+        padding: 6px 3px;
+    }
+}

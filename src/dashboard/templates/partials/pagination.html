@@ -5,22 +5,23 @@
     <div class="pagination-nav">
         {% if page > 1 %}
         <a href="#" class="btn btn-page"
-           hx-get="/table?page={{ page - 1 }}&amp;per_page={{ per_page }}&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
+           hx-get="/table?page={{ page - 1 }}&amp;per_page={{ per_page }}&amp;select={{ select }}{% if sort %}&amp;sort={{ sort }}{% endif %}"
            hx-target="#table-container"
-           hx-include="[name='since'], #search-input">◀ Previous</a>
+           hx-include="#search-input, [name='since'], #filter-state">◀ Previous</a>
         {% endif %}
         {% if page < total_pages %}
         <a href="#" class="btn btn-page"
-           hx-get="/table?page={{ page + 1 }}&amp;per_page={{ per_page }}&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
+           hx-get="/table?page={{ page + 1 }}&amp;per_page={{ per_page }}&amp;select={{ select }}{% if sort %}&amp;sort={{ sort }}{% endif %}"
            hx-target="#table-container"
-           hx-include="[name='since'], #search-input">Next ▶</a>
+           hx-include="#search-input, [name='since'], #filter-state">Next ▶</a>
         {% endif %}
     </div>
     <div class="pagination-per-page">
         <label for="per-page-select">Per page:</label>
         <select id="per-page-select" class="per-page-select" name="per_page"
-                hx-get="/table?page=1&amp;search={{ search }}&amp;select={{ select }}&amp;since={{ since }}"
-                hx-target="#table-container">
+                hx-get="/table?page=1&amp;select={{ select }}{% if sort %}&amp;sort={{ sort }}{% endif %}"
+                hx-target="#table-container"
+                hx-include="#search-input, [name='since'], #filter-state">
             <option value="10" {% if per_page == 10 and not show_all %}selected{% endif %}>10</option>
             <option value="50" {% if per_page == 50 and not show_all %}selected{% endif %}>50</option>
             <option value="100" {% if per_page == 100 and not show_all %}selected{% endif %}>100</option>

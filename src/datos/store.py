@@ -1,7 +1,9 @@
-"""SQLite store for datos module — profile_fields, cv_files, scan_platforms tables.
+"""SQLite store for datos module — profile_fields, cv_files tables.
 
 All tables live in the same jobs.db file shared with the dashboard server.
 Migrations are additive and idempotent (CREATE TABLE IF NOT EXISTS).
+The scan_platforms table has been moved to src.scan.store as part of the
+5-layer architecture extraction.
 """
 
 from __future__ import annotations
@@ -9,12 +11,14 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
-from src.datos.models import CVFile, ProfileField, ScanPlatform
+from src.core.config.settings import DB_PATH as _CORE_DB_PATH
+from src.datos.models import CVFile, ProfileField
 
 
-def get_connection(db_path: str = "jobs.db") -> sqlite3.Connection:
+def get_connection(db_path: str = "") -> sqlite3.Connection:
     """Open a sqlite3 connection with row_factory for the datos DB."""
-    conn = sqlite3.connect(db_path)
+    path = db_path or str(_CORE_DB_PATH)
+    conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.row_factory = sqlite3.Row
     return conn
@@ -23,8 +27,8 @@ def get_connection(db_path: str = "jobs.db") -> sqlite3.Connection:
 def run_datos_migration(db_path: str) -> None:
     """Create datos tables and seed defaults (idempotent).
 
-    Creates profile_fields, cv_files, and scan_platforms tables.
-    Seeds LinkedIn as the default scan platform.
+    Creates profile_fields and cv_files tables.
+    The scan_platforms table is now managed by src.scan.store.
     """
     conn = get_connection(db_path)
     try:
@@ -44,22 +48,7 @@ def run_datos_migration(db_path: str) -> None:
                 file_path     TEXT    NOT NULL,
                 uploaded_at   TEXT    NOT NULL
             );
-
-            CREATE TABLE IF NOT EXISTS scan_platforms (
-                id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT    NOT NULL UNIQUE,
-                url  TEXT    NOT NULL
-            );
         """)
-        # Seed LinkedIn if not already present
-        existing = conn.execute(
-            "SELECT COUNT(*) FROM scan_platforms WHERE name = ?", ("LinkedIn",)
-        ).fetchone()[0]
-        if existing == 0:
-            conn.execute(
-                "INSERT INTO scan_platforms (name, url) VALUES (?, ?)",
-                ("LinkedIn", "https://www.linkedin.com/jobs/"),
-            )
         conn.commit()
     except (sqlite3.OperationalError, sqlite3.IntegrityError):
         conn.rollback()
@@ -68,6 +57,8 @@ def run_datos_migration(db_path: str) -> None:
 
 
 # -- Profile Fields CRUD --------------------------------------------------------
+
+# (rest of CRUD follows here — unchanged)
 
 
 def get_fields(conn: sqlite3.Connection) -> list[ProfileField]:
@@ -157,38 +148,5 @@ def save_cv(conn: sqlite3.Connection, filename: str, original_name: str, file_pa
 def delete_cv(conn: sqlite3.Connection) -> bool:
     """Delete all CV records. Returns True if any row was deleted."""
     cursor = conn.execute("DELETE FROM cv_files")
-    conn.commit()
-    return cursor.rowcount > 0
-
-
-# -- Scan Platforms CRUD --------------------------------------------------------
-
-
-def get_platforms(conn: sqlite3.Connection) -> list[ScanPlatform]:
-    """Return all scan platforms ordered by name."""
-    rows = conn.execute(
-        "SELECT id, name, url FROM scan_platforms ORDER BY name"
-    ).fetchall()
-    return [
-        ScanPlatform(name=row["name"], url=row["url"], id=row["id"])
-        for row in rows
-    ]
-
-
-def add_platform(conn: sqlite3.Connection, name: str, url: str) -> int:
-    """Insert a new platform. Returns the row id. Raises IntegrityError on duplicate name."""
-    cursor = conn.execute(
-        "INSERT INTO scan_platforms (name, url) VALUES (?, ?)",
-        (name, url),
-    )
-    conn.commit()
-    row_id = cursor.lastrowid
-    assert row_id is not None
-    return row_id
-
-
-def remove_platform(conn: sqlite3.Connection, platform_id: int) -> bool:
-    """Delete a platform by id. Returns True if a row was deleted."""
-    cursor = conn.execute("DELETE FROM scan_platforms WHERE id = ?", (platform_id,))
     conn.commit()
     return cursor.rowcount > 0

@@ -73,11 +73,11 @@ class TestCVFile:
 
 
 class TestScanPlatform:
-    """ScanPlatform dataclass — init, defaults."""
+    """ScanPlatform dataclass — init, defaults (imported from src.scan.models)."""
 
     def test_init_with_all_fields(self):
         """RED: ScanPlatform should init with all fields."""
-        from src.datos.models import ScanPlatform
+        from src.scan.models import ScanPlatform
         p = ScanPlatform(name="LinkedIn", url="https://www.linkedin.com/jobs/", id=1)
         assert p.name == "LinkedIn"
         assert p.url == "https://www.linkedin.com/jobs/"
@@ -85,7 +85,7 @@ class TestScanPlatform:
 
     def test_default_id_is_none(self):
         """RED: ScanPlatform id should default to None."""
-        from src.datos.models import ScanPlatform
+        from src.scan.models import ScanPlatform
         p = ScanPlatform(name="Test", url="http://example.com")
         assert p.id is None
 
@@ -95,14 +95,14 @@ class TestScanPlatform:
 # =============================================================================
 
 class TestStore:
-    """Store module — migration, connection, CRUD for 3 tables."""
+    """Store module — migration, connection, CRUD for 2 tables (profile_fields, cv_files)."""
 
     @pytest.fixture
     def db_path(self, tmp_path: Path) -> str:
         return str(tmp_path / "test_datos.db")
 
     def test_migration_creates_tables(self, db_path: str):
-        """RED: run_datos_migration should create 3 tables idempotently."""
+        """RED: run_datos_migration should create 2 tables idempotently."""
         from src.datos.store import run_datos_migration, get_connection
 
         run_datos_migration(db_path)
@@ -114,7 +114,6 @@ class TestStore:
 
         assert "profile_fields" in tables
         assert "cv_files" in tables
-        assert "scan_platforms" in tables
 
     def test_migration_idempotent(self, db_path: str):
         """RED: running migration twice should not raise."""
@@ -124,10 +123,10 @@ class TestStore:
         run_datos_migration(db_path)  # second call — must not raise
 
     def test_migration_seeds_linkedin(self, db_path: str):
-        """RED: migration should seed LinkedIn as default platform."""
-        from src.datos.store import run_datos_migration, get_connection
+        """RED: SCAN migration should seed LinkedIn as default platform."""
+        from src.scan.store import run_scan_migration, get_connection
 
-        run_datos_migration(db_path)
+        run_scan_migration(db_path)
         conn = get_connection(db_path)
         rows = conn.execute("SELECT name, url FROM scan_platforms").fetchall()
         conn.close()
@@ -262,10 +261,10 @@ class TestStore:
     # -- Scan Platforms CRUD ---------------------------------------------------
 
     def test_get_platforms_after_seed(self, db_path: str):
-        """RED: get_platforms should return LinkedIn after migration."""
-        from src.datos.store import run_datos_migration, get_connection, get_platforms
+        """RED: get_platforms should return LinkedIn after SCAN migration."""
+        from src.scan.store import run_scan_migration, get_connection, get_platforms
 
-        run_datos_migration(db_path)
+        run_scan_migration(db_path)
         conn = get_connection(db_path)
         platforms = get_platforms(conn)
         conn.close()
@@ -275,27 +274,27 @@ class TestStore:
 
     def test_add_platform(self, db_path: str):
         """RED: add_platform should insert and return the new platform id."""
-        from src.datos.store import run_datos_migration, get_connection, add_platform, get_platforms
+        from src.scan.store import run_scan_migration, get_connection, add_platform, get_platforms
 
-        run_datos_migration(db_path)
+        run_scan_migration(db_path)
         conn = get_connection(db_path)
-        pid = add_platform(conn, "InfoJobs", "https://www.infojobs.net/")
+        pid = add_platform(conn, "TestPlatform", "https://example.com/jobs/")
         assert pid is not None
 
         platforms = get_platforms(conn)
         conn.close()
         names = [p.name for p in platforms]
-        assert "InfoJobs" in names
+        assert "TestPlatform" in names
 
     def test_remove_platform(self, db_path: str):
         """RED: remove_platform should delete a platform by id."""
-        from src.datos.store import (
-            run_datos_migration, get_connection, add_platform, remove_platform, get_platforms,
+        from src.scan.store import (
+            run_scan_migration, get_connection, add_platform, remove_platform, get_platforms,
         )
 
-        run_datos_migration(db_path)
+        run_scan_migration(db_path)
         conn = get_connection(db_path)
-        pid = add_platform(conn, "InfoJobs", "https://www.infojobs.net/")
+        pid = add_platform(conn, "TestPlatform", "https://example.com/jobs/")
         assert pid is not None
 
         result = remove_platform(conn, pid)
@@ -304,13 +303,13 @@ class TestStore:
         platforms = get_platforms(conn)
         conn.close()
         names = [p.name for p in platforms]
-        assert "InfoJobs" not in names
+        assert "TestPlatform" not in names
 
     def test_remove_platform_nonexistent_returns_false(self, db_path: str):
         """TRIANGULATE: removing a platform that doesn't exist should return False."""
-        from src.datos.store import run_datos_migration, get_connection, remove_platform
+        from src.scan.store import run_scan_migration, get_connection, remove_platform
 
-        run_datos_migration(db_path)
+        run_scan_migration(db_path)
         conn = get_connection(db_path)
         result = remove_platform(conn, 9999)
         conn.close()
@@ -323,23 +322,30 @@ class TestStore:
 
 @pytest.fixture
 def datos_client(tmp_path: Path):
-    """TestClient with datos router mounted and patched DB_PATH."""
+    """TestClient with datos + scan routers mounted and patched DB_PATH."""
     import src.dashboard.server as server
     from src.datos.routes import datos_router
+    from src.scan.routes import scan_router
 
     db_path = str(tmp_path / "datos_test.db")
 
     # Run migrations
     from src.datos.store import run_datos_migration
     run_datos_migration(db_path)
+    from src.scan.store import run_scan_migration
+    run_scan_migration(db_path)
     server.run_migration(db_path)
 
-    # Patch DB_PATH for routes module
+    # Patch DB_PATH for routes modules
     import src.datos.routes as datos_routes
     original_routes = datos_routes.DB_PATH
     datos_routes.DB_PATH = db_path
 
-    # Mount the router (idempotent check)
+    import src.scan.routes as scan_routes
+    original_scan_routes = scan_routes.DB_PATH
+    scan_routes.DB_PATH = db_path
+
+    # Mount the routers (idempotent check)
     router_already_mounted = False
     for r in server.app.routes:
         if hasattr(r, "routes"):
@@ -352,6 +358,7 @@ def datos_client(tmp_path: Path):
 
     if not router_already_mounted:
         server.app.include_router(datos_router)
+        server.app.include_router(scan_router)
 
     original_server_db = server.DB_PATH
     server.DB_PATH = db_path
@@ -362,6 +369,7 @@ def datos_client(tmp_path: Path):
     finally:
         server.DB_PATH = original_server_db
         datos_routes.DB_PATH = original_routes
+        scan_routes.DB_PATH = original_scan_routes
 
 
 class TestRoutes:
@@ -534,9 +542,9 @@ class TestRoutes:
 
     def test_add_platform(self, datos_client):
         """RED: POST /datos/platforms/add should add platform."""
-        response = datos_client.post("/datos/platforms/add", data={"name": "InfoJobs", "url": "https://www.infojobs.net/"})
+        response = datos_client.post("/datos/platforms/add", data={"name": "TestPlatform", "url": "https://example.com/jobs/"})
         assert response.status_code == 200
-        assert "InfoJobs" in response.text
+        assert "TestPlatform" in response.text
 
     def test_remove_platform(self, datos_client):
         """RED: POST /datos/platforms/remove/{id} should remove platform."""
@@ -564,21 +572,21 @@ class TestContentHash:
 
     def test_sha256_known_input(self):
         """RED: SHA-256 of known inputs should match expected."""
-        from src.db.database import _content_hash
+        from src.core.db.database import _content_hash
         result = _content_hash("Engineer", "Acme", "Build things")
         expected = hashlib.sha256("EngineerAcmeBuild things".encode()).hexdigest()
         assert result == expected
 
     def test_different_content_different_hash(self):
         """TRIANGULATE: different content should produce different hashes."""
-        from src.db.database import _content_hash
+        from src.core.db.database import _content_hash
         h1 = _content_hash("Engineer", "Acme", "Build things")
         h2 = _content_hash("Manager", "Beta", "Manage things")
         assert h1 != h2
 
     def test_empty_content(self):
         """TRIANGULATE: empty strings should still produce a hash."""
-        from src.db.database import _content_hash
+        from src.core.db.database import _content_hash
         result = _content_hash("", "", "")
         expected = hashlib.sha256("".encode()).hexdigest()
         assert result == expected
@@ -620,8 +628,11 @@ class TestDateFilterSQL:
         conn.close()
 
         import src.dashboard.server as server
+        import src.status.routes as status_routes
         original = server.DB_PATH
+        orig_status = status_routes.DB_PATH
         server.DB_PATH = db_path
+        status_routes.DB_PATH = db_path
         try:
             response = TestClient(server.app).get("/table")
             assert response.status_code == 200
@@ -629,6 +640,7 @@ class TestDateFilterSQL:
             assert "Recent Job" in response.text
         finally:
             server.DB_PATH = original
+            status_routes.DB_PATH = orig_status
 
     def test_filter_24h_excludes_old(self, tmp_path: Path):
         """RED: since=24h should exclude jobs older than 24 hours."""
@@ -663,8 +675,11 @@ class TestDateFilterSQL:
         conn.close()
 
         import src.dashboard.server as server
+        import src.status.routes as status_routes
         original = server.DB_PATH
+        orig_status = status_routes.DB_PATH
         server.DB_PATH = db_path
+        status_routes.DB_PATH = db_path
         try:
             response = TestClient(server.app).get("/table?since=24h")
             assert response.status_code == 200
@@ -672,3 +687,4 @@ class TestDateFilterSQL:
             assert "Recent Job" in response.text
         finally:
             server.DB_PATH = original
+            status_routes.DB_PATH = orig_status

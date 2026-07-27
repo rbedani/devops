@@ -1,4 +1,8 @@
-"""SQLite database layer for job listings."""
+"""SQLite database layer for job listings — singleton pattern.
+
+Use `get_db()` to obtain the shared JobDatabase instance. Migration is
+separated from connection so it only runs once at startup.
+"""
 
 from __future__ import annotations
 
@@ -8,10 +12,8 @@ import sqlite3
 from pathlib import Path
 from typing import Sequence
 
-from src.models.job import Job, JobTag
-
-
-DEFAULT_DB_PATH = Path("jobs.db")
+from src.core.models.job import Job
+from src.core.config.settings import DB_PATH
 
 
 def _content_hash(title: str, company: str | None, description: str | None) -> str:
@@ -64,11 +66,25 @@ CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 """
 
 
+def run_migrations(db_path: Path | str | None = None) -> None:
+    """Run schema migrations independently of connection.
+
+    Call this once at application startup. Subsequent calls are idempotent.
+    """
+    path = Path(db_path) if db_path else DB_PATH
+    conn = sqlite3.connect(str(path))
+    try:
+        conn.executescript(_SCHEMA)
+        _run_status_migration(conn)
+    finally:
+        conn.close()
+
+
 class JobDatabase:
     """Thin wrapper around SQLite for storing and querying job listings."""
 
-    def __init__(self, db_path: Path | str = DEFAULT_DB_PATH) -> None:
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None) -> None:
+        self.db_path = Path(db_path) if db_path else DB_PATH
         self._conn: sqlite3.Connection | None = None
 
     # -- Connection management ---------------------------------------------------
@@ -78,9 +94,6 @@ class JobDatabase:
             self._conn = sqlite3.connect(str(self.db_path))
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
-            self._conn.executescript(_SCHEMA)
-            # Add status column if missing (existing DBs)
-            _run_status_migration(self._conn)
         return self._conn
 
     def close(self) -> None:
@@ -130,7 +143,7 @@ class JobDatabase:
                 ),
             )
             conn.commit()
-            return cursor.lastrowid  # type: ignore[return-value]
+            return existing[0]
         else:
             cursor = conn.execute(
                 """
@@ -205,6 +218,13 @@ class JobDatabase:
         conn.commit()
         return cursor.rowcount > 0
 
+    def delete_all(self) -> int:
+        """Delete all rows from the jobs table. Returns number of rows deleted."""
+        conn = self.connect()
+        cursor = conn.execute("DELETE FROM jobs")
+        conn.commit()
+        return cursor.rowcount
+
     def update_status(self, job_id: int, status: str) -> None:
         """Set the status column for a job row.
 
@@ -214,3 +234,22 @@ class JobDatabase:
         conn = self.connect()
         conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, job_id))
         conn.commit()
+
+
+# -- Singleton accessor -------------------------------------------------------
+
+_instance: JobDatabase | None = None
+
+
+def get_db(db_path: Path | str | None = None) -> JobDatabase:
+    """Return the shared JobDatabase singleton.
+
+    The database is created on first call and cached. connect() is deliberately
+    NOT called here — callers must call connect() explicitly or use the context
+    manager. This allows the caller to control when the connection is established
+    (e.g. after running migrations).
+    """
+    global _instance
+    if _instance is None:
+        _instance = JobDatabase(db_path=db_path)
+    return _instance

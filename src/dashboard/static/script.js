@@ -1,4 +1,4 @@
-// Cyberpunk Dashboard — JS for SSE progress, debug, clean-db, select-all, auto-apply
+// Cyberpunk Dashboard — JS for SSE progress, debug, clean-db, select-all
 (function () {
     'use strict';
 
@@ -149,6 +149,7 @@
         var w = this.canvasWidth;
         var h = this.canvasHeight;
         var ctx = this.ctx;
+        var isLight = document.documentElement.getAttribute('data-theme') === 'light';
         ctx.clearRect(0, 0, w, h);
         ctx.imageSmoothingEnabled = false;
         var color = this.accentColor;
@@ -168,7 +169,6 @@
         }
 
         // Clouds — draw from sprite sheet, invert in light mode
-        var isLight = document.documentElement.getAttribute('data-theme') === 'light';
         if (isLight) ctx.filter = 'invert(1)';
         for (var i = 0; i < this.clouds.length; i++) {
             var cl = this.clouds[i];
@@ -250,6 +250,9 @@
             this.lastCloudSpawn = Date.now();
         }
 
+        // Move obstacles and clouds
+        var speed = 4 + (this.targetPct / 100) * 3;
+
         // Update score (only while running and not ducking/jumping)
         if (this.running && !this.isDucking && !this.isJumping) {
             this.score += Math.ceil(speed * 0.1);
@@ -258,9 +261,6 @@
                 localStorage.setItem('dino-hi-score', this.hiScore);
             }
         }
-
-        // Move obstacles and clouds
-        var speed = 4 + (this.targetPct / 100) * 3;
         for (var i = this.obstacles.length - 1; i >= 0; i--) {
             this.obstacles[i].x -= speed * 0.7;
             if (this.obstacles[i].x < -200) this.obstacles.splice(i, 1);
@@ -323,13 +323,15 @@
     }
 
     function showDone(data) {
-        var wrap = document.getElementById('progress-container');
+        var wrap = document.getElementById('scan-progress');
         if (!wrap) return;
 
         if (data.error) {
-            wrap.innerHTML = '<div class="scan-progress scan-progress-error"><div class="progress-track"><div class="progress-fill" style="width:100%"></div></div></div>';
+            wrap.innerHTML = '<div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>';
+            wrap.className = 'scan-progress scan-progress-error';
         } else {
-            wrap.innerHTML = '<div class="scan-progress scan-progress-done"><div class="progress-track"><div class="progress-fill" style="width:100%"></div></div></div>';
+            wrap.innerHTML = '<div class="progress-track"><div class="progress-fill" style="width:100%"></div></div>';
+            wrap.className = 'scan-progress scan-progress-done';
         }
 
         // Dino renderer cleanup
@@ -355,31 +357,34 @@
         // Disable scan button while running
         disableScanButton();
 
-        // Show STOP button in header if debug mode is on
-        var debugCheckbox = document.getElementById('debug-mode');
+        // Show STOP button in SCAN tab (always visible when scan runs)
         var stopBtn = document.getElementById('stop-btn');
-        if (stopBtn && debugCheckbox && debugCheckbox.checked) {
+        if (stopBtn) {
             stopBtn.style.display = 'inline-block';
         }
 
-        // Expand the dino banner and init dino renderer
-        var progressContainer = document.getElementById('progress-container');
-        var dinoBanner = document.getElementById('dino-banner');
-        if (dinoBanner) {
-            // rAF to force a frame separation — otherwise CSS transition
-            // won't fire because the element was just inserted by HTMX.
-            // Also ensures the canvas renderer sees the expanded dimensions.
-            requestAnimationFrame(function () {
-                dinoBanner.classList.add('expanded');
-
-                // Create canvas renderer AFTER expansion so resize() sees 45px
-                var canvas = document.getElementById('dino-canvas');
-                if (canvas) {
-                    dinoRenderer = new DinoCanvasRenderer(canvas, dinoBanner);
-                    dinoRenderer.start();
-                }
-            });
-        }
+        // Expand the dino banner and init dino renderer.
+        // Use htmx:afterSettle (not requestAnimationFrame alone) so that HTMX
+        // has already removed its htmx-added class before we touch the element.
+        // Re-query the DOM inside the callback — never trust a closure over
+        // an element that HTMX may swap asynchronously.
+        var settleHandler = function () {
+            document.body.removeEventListener('htmx:afterSettle', settleHandler);
+            var dinoBanner = document.getElementById('dino-banner');
+            if (dinoBanner) {
+                // Single rAF to let the CSS transition kick off after the
+                // class is added in the same frame.
+                requestAnimationFrame(function () {
+                    dinoBanner.classList.add('expanded');
+                    var canvas = document.getElementById('dino-canvas');
+                    if (canvas) {
+                        dinoRenderer = new DinoCanvasRenderer(canvas, dinoBanner);
+                        dinoRenderer.start();
+                    }
+                });
+            }
+        };
+        document.body.addEventListener('htmx:afterSettle', settleHandler);
 
         eventSource.onmessage = function (e) {
             try {
@@ -409,6 +414,14 @@
                     }, 1500);
                 } else {
                     updateProgress(data);
+                    // Append log lines to the log viewer
+                    if (data.log) {
+                        var logEl = document.getElementById('scan-log');
+                        if (logEl) {
+                            logEl.textContent += data.log + '\n';
+                            logEl.scrollTop = logEl.scrollHeight;
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('SSE parse error:', err);
@@ -428,27 +441,14 @@
         };
     }
 
-    // -- Debug Checkbox + HEADER buttons (CLEAN DB + STOP) ----------------
+    // -- Settings: Debug Mode -------------------------------------------------
 
-    var debugCheckbox = document.getElementById('debug-mode');
-    if (debugCheckbox) {
-        debugCheckbox.addEventListener('change', function () {
-            var isChecked = this.checked;
-            // Toggle CLEAN DB
-            var cleanBtn = document.getElementById('clean-db-btn');
-            if (cleanBtn) {
-                cleanBtn.style.display = isChecked ? 'inline-block' : 'none';
-            }
-            // Toggle STOP button (only if scan is running)
-            var stopBtn = document.getElementById('stop-btn');
-            if (stopBtn) {
-                var scanBtn = document.getElementById('scan-btn');
-                var isScanRunning = scanBtn && scanBtn.disabled;
-                stopBtn.style.display = (isChecked && isScanRunning) ? 'inline-block' : 'none';
-            }
-            console.log('[Debug] Debug mode ' + (isChecked ? 'ON' : 'OFF') + ' — limiting to 3 results per scraper.');
-        });
-    }
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'settings-debug') {
+            localStorage.setItem('dashboard-debug', e.target.checked ? 'on' : 'off');
+            console.log('[Debug] Debug mode ' + (e.target.checked ? 'ON' : 'OFF') + ' — limiting to 3 results per scraper.');
+        }
+    });
 
 // After clean-db, hide CLEAN DB and STOP buttons
     document.body.addEventListener('htmx:afterRequest', function (evt) {
@@ -459,26 +459,19 @@
                 eventSource = null;
             }
             enableScanButton();
-            var progressContainer = document.getElementById('progress-container');
-            if (progressContainer) {
-                progressContainer.classList.remove('expanded');
+            var progressSection = document.getElementById('scan-progress-section');
+            if (progressSection) {
+                progressSection.innerHTML = '';
             }
             dinoRenderer = null;
 
-            // Hide STOP and CLEAN DB buttons in header
+            // Hide STOP button in SCAN tab
             var stopBtn = document.getElementById('stop-btn');
             if (stopBtn) stopBtn.style.display = 'none';
-            var cleanBtn = document.getElementById('clean-db-btn');
-            if (cleanBtn) cleanBtn.style.display = 'none';
-
-            var tableContainer = document.getElementById('table-container');
-            if (tableContainer) {
-                htmx.ajax('GET', '/table', {target: '#table-container', swap: 'innerHTML'});
-            }
         }
     });
 
-    // After /scan/stop, close SSE, re-enable SCAN, collapse progress, kill dino
+    // After /scan/stop, close SSE, re-enable SCAN, clear progress, kill dino
     document.body.addEventListener('htmx:afterRequest', function (evt) {
         if (evt.detail.pathInfo.requestPath === '/scan/stop') {
             if (eventSource) {
@@ -486,117 +479,87 @@
                 eventSource = null;
             }
             enableScanButton();
-            var progressContainer = document.getElementById('progress-container');
-            if (progressContainer) {
-                progressContainer.classList.remove('expanded');
+            var progressSection = document.getElementById('scan-progress-section');
+            if (progressSection) {
+                progressSection.innerHTML = '';
             }
             dinoRenderer = null;
 
-            // Hide STOP button in header
+            // Hide STOP button in SCAN tab
             var stopBtn = document.getElementById('stop-btn');
             if (stopBtn) stopBtn.style.display = 'none';
         }
     });
 
-    // -- Select-All Checkbox ----------------------------------------------
+    // -- Settings: Theme ---------------------------------------------------
 
     document.body.addEventListener('change', function (e) {
-        if (e.target && e.target.id === 'select-all') {
-            var checkboxes = document.querySelectorAll('.job-select');
-            for (var i = 0; i < checkboxes.length; i++) {
-                checkboxes[i].checked = e.target.checked;
-            }
-        }
-    });
-
-    // -- Auto-Apply handler --------------------------------------------------
-
-    document.body.addEventListener('click', function (e) {
-        var target = e.target;
-        if (target && target.id === 'auto-apply-btn') {
-            e.preventDefault();
-            var selected = document.querySelectorAll('.job-select:checked');
-            var ids = [];
-            for (var i = 0; i < selected.length; i++) {
-                ids.push(parseInt(selected[i].value, 10));
-            }
-            if (ids.length === 0) return;
-
-            var btn = document.getElementById('auto-apply-btn');
-            btn.disabled = true;
-            btn.textContent = 'APPLYING...';
-
-            fetch('/apply/auto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ job_ids: ids }),
-            })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                console.log('[Auto-Apply] Results:', data.results);
-                // Refresh the table to show updated statuses
-                htmx.ajax('GET', '/table', {target: '#table-container', swap: 'innerHTML'});
-            })
-            .catch(function (err) {
-                console.error('[Auto-Apply] Error:', err);
-            })
-            .finally(function () {
-                btn.disabled = false;
-                btn.textContent = 'AUTO-APPLY';
-                // Uncheck all selected checkboxes
-                var checkboxes = document.querySelectorAll('.job-select:checked');
-                for (var i = 0; i < checkboxes.length; i++) {
-                    checkboxes[i].checked = false;
-                }
-                // Re-enable check logic
-                var selectAll = document.getElementById('select-all');
-                if (selectAll) selectAll.checked = false;
-                var checked = document.querySelectorAll('.job-select:checked');
-                if (checked.length === 0) {
-                    btn.disabled = true;
-                    btn.style.opacity = '0.4';
-                    btn.style.cursor = 'not-allowed';
-                    btn.title = 'Auto-Apply (next session)';
-                }
-            });
-        }
-    });
-
-    // -- Enable Auto-Apply when selections exist --------------------------
-
-    document.body.addEventListener('change', function (e) {
-        if (e.target && e.target.classList.contains('job-select')) {
-            var btn = document.getElementById('auto-apply-btn');
-            if (!btn) return;
-            var checked = document.querySelectorAll('.job-select:checked');
-            if (checked.length > 0) {
-                btn.disabled = false;
-                btn.style.opacity = '1';
-                btn.style.cursor = 'pointer';
-                btn.title = 'Auto-Apply to ' + checked.length + ' selected job(s)';
-            } else {
-                btn.disabled = true;
-                btn.style.opacity = '0.4';
-                btn.style.cursor = 'not-allowed';
-                btn.title = 'Auto-Apply (next session)';
-            }
-        }
-    });
-
-    // -- Theme Toggle -----------------------------------------------------
-
-    var themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-        // Load saved preference
-        var saved = localStorage.getItem('dashboard-theme');
-        if (saved === 'light') themeToggle.checked = true;
-
-        themeToggle.addEventListener('change', function () {
-            var theme = this.checked ? 'light' : 'dark';
+        if (e.target && e.target.id === 'settings-theme') {
+            var theme = e.target.value;
             document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('dashboard-theme', theme);
-        });
-    }
+        }
+    });
+
+    // -- Settings: Font Size -----------------------------------------------
+
+    document.body.addEventListener('input', function (e) {
+        if (e.target && e.target.id === 'settings-font-size') {
+            var size = e.target.value + 'px';
+            document.documentElement.style.fontSize = size;
+            localStorage.setItem('dashboard-font-size', size);
+            var valDisplay = document.getElementById('font-size-value');
+            if (valDisplay) valDisplay.textContent = size;
+        }
+    });
+
+    // -- Settings: Font Family ---------------------------------------------
+
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'settings-font-family') {
+            var family = e.target.value;
+            document.documentElement.style.setProperty('--font-mono', family);
+            localStorage.setItem('dashboard-font-family', family);
+        }
+    });
+
+    // -- Settings: Animations ----------------------------------------------
+
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'settings-animations') {
+            localStorage.setItem('dashboard-animations', e.target.checked ? 'on' : 'off');
+        }
+    });
+
+    // -- Settings: Compact Mode --------------------------------------------
+
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'settings-compact') {
+            if (e.target.checked) {
+                document.body.classList.add('compact-mode');
+            } else {
+                document.body.classList.remove('compact-mode');
+            }
+            localStorage.setItem('dashboard-compact', e.target.checked ? 'on' : 'off');
+        }
+    });
+
+    // -- Load saved settings on page load ----------------------------------
+    // Note: sort config is loaded inline in settings.html via loadSortConfig()
+
+    (function loadSettings() {
+        var savedTheme = localStorage.getItem('dashboard-theme');
+        if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+        var savedFontSize = localStorage.getItem('dashboard-font-size');
+        if (savedFontSize) document.documentElement.style.fontSize = savedFontSize;
+
+        var savedFontFamily = localStorage.getItem('dashboard-font-family');
+        if (savedFontFamily) document.documentElement.style.setProperty('--font-mono', savedFontFamily);
+
+        var savedCompact = localStorage.getItem('dashboard-compact');
+        if (savedCompact === 'on') document.body.classList.add('compact-mode');
+    })();
 
     // -- DATA Button Toggle ----------------------------------------------
 
@@ -610,20 +573,19 @@
             var mc = document.getElementById('main-content');
             if (!mc) return;
 
-            if (dataActive) {
-                // Save table, swap to panel
-                savedTableContent = mc.innerHTML;
-                this.textContent = 'TABLE';
-                this.classList.add('btn-data-active');
-                htmx.ajax('GET', '/datos/panel', {target: '#main-content', swap: 'innerHTML'});
-            } else {
-                // Restore table
-                this.classList.remove('btn-data-active');
-                this.textContent = 'DATA';
-                mc.innerHTML = savedTableContent;
-                var tc = document.getElementById('table-container');
-                if (tc) htmx.trigger(tc, 'load');
-            }
+if (dataActive) {
+                    // Save table, swap to panel
+                    savedTableContent = mc.innerHTML;
+                    this.textContent = 'TABLE';
+                    this.classList.add('btn-data-active');
+                    htmx.ajax('GET', '/datos/panel', {target: '#main-content', swap: 'innerHTML'});
+                } else {
+                    // Restore table
+                    this.classList.remove('btn-data-active');
+                    this.textContent = 'DATA';
+                    mc.innerHTML = savedTableContent;
+                    htmx.ajax('GET', '/table', {target: '#table-container', swap: 'innerHTML'});
+                }
         });
     }
 
@@ -632,7 +594,7 @@
     // Before SAVE: disable button to prevent double-click
     document.body.addEventListener('htmx:beforeRequest', function (evt) {
         if (evt.detail.pathInfo.requestPath === '/datos/fields/save') {
-            var btn = document.querySelector('.btn-save');
+            var btn = document.querySelector('.btn-scan');
             if (btn) btn.disabled = true;
         }
         if (evt.detail.pathInfo.requestPath === '/datos/fields/add') {
@@ -644,7 +606,7 @@
     // After SAVE completes: log status message, re-enable button
     document.body.addEventListener('htmx:afterRequest', function (evt) {
         if (evt.detail.pathInfo.requestPath === '/datos/fields/save') {
-            var btn = document.querySelector('.btn-save');
+            var btn = document.querySelector('.btn-scan');
             if (btn) btn.disabled = false;
             if (evt.detail.successful) {
                 console.log('[Datos] Fields saved successfully.');
@@ -683,16 +645,13 @@
         }
     });
 
-    // -- SELECT Button Toggle --------------------------------------------
+    // -- SELECT Button Toggle — REMOVED per user request ----------------------
+    // SELECT button and checkbox column have been removed.
+    // document.body.addEventListener('click', function (e) { ... });
 
-    var selectBtn = document.querySelector('.btn-toggle');
-    if (selectBtn) {
-        selectBtn.addEventListener('click', function () {
-            var isEnabled = this.getAttribute('hx-get') === '/select/toggle?enabled=true';
-            this.setAttribute('hx-get', isEnabled ? '/select/toggle?enabled=false' : '/select/toggle?enabled=true');
-            this.textContent = isEnabled ? 'SELECT' : 'SELECT';
-        });
-    }
+    // Event delegation for checkbox changes (survives HTMX swaps)
+    // REMOVED: SELECT/checkbox column removed per user request.
+    // document.body.addEventListener('change', function (e) { ... });
 
     // After clean-db: re-enable TABLE view
     document.body.addEventListener('htmx:afterRequest', function (evt) {
@@ -713,53 +672,80 @@
         }
     });
 
-    // -- SELECT Button Toggle --------------------------------------------
+// -- Tab Navigation: active state management ---------------------------
 
-    var selectBtn = document.querySelector('.btn-toggle');
-    if (selectBtn) {
-        selectBtn.addEventListener('click', function () {
-            var isEnabled = this.classList.toggle('btn-toggle-active');
-            htmx.ajax('GET', '/select/toggle?enabled=' + isEnabled, {
-                target: '#table-container',
-                swap: 'innerHTML'
+    // Track the last clicked tab via data-tab attribute
+    var lastTabAttr = 'status';
+
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        var trigger = evt.detail.elt;
+        if (trigger?.dataset?.tab) {
+            lastTabAttr = trigger.dataset.tab;
+        }
+    });
+
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target?.id === 'main-content') {
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.remove('tab-active');
             });
-        });
-    }
+            var tab = document.querySelector('[data-tab="' + lastTabAttr + '"]');
+            if (tab) tab.classList.add('tab-active');
+        }
+    });
+
+    // -- SCAN restore saved params after tab load -------------------------
+
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target?.id !== 'main-content') return;
+        var scanTab = document.getElementById('scan-tab');
+        if (!scanTab) return;
+        // Params are already set by server from saved JSON, no client action needed
+    });
 
 })();
 
-// -- Filter Dropdown -------------------------------------------------------
+// -- Filter Dropdown (event delegation — survives HTMX swaps) ---------------
 
 (function () {
     'use strict';
 
-    var filterBtn = document.getElementById('filter-btn');
-    var filterMenu = document.getElementById('filter-menu');
-
-    if (filterBtn && filterMenu) {
-        // Toggle dropdown on button click
-        filterBtn.addEventListener('click', function (e) {
+    // Toggle dropdown on button click (event delegation on body)
+    document.body.addEventListener('click', function (e) {
+        var btn = e.target.closest('#filter-btn');
+        if (btn) {
             e.stopPropagation();
-            var isVisible = filterMenu.style.display !== 'none';
-            filterMenu.style.display = isVisible ? 'none' : 'block';
-        });
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function (e) {
-            var wrapper = document.getElementById('filter-wrapper');
-            if (wrapper && !wrapper.contains(e.target)) {
-                filterMenu.style.display = 'none';
+            var menu = document.getElementById('filter-menu');
+            if (menu) {
+                var isVisible = menu.style.display !== 'none';
+                menu.style.display = isVisible ? 'none' : 'block';
             }
-        });
+        }
+    });
 
-        // Refresh table when any filter checkbox changes
-        filterMenu.addEventListener('change', function () {
+    // Close dropdown when clicking outside
+    document.body.addEventListener('click', function (e) {
+        var wrapper = document.getElementById('filter-wrapper');
+        if (wrapper && !wrapper.contains(e.target)) {
+            var menu = document.getElementById('filter-menu');
+            if (menu) menu.style.display = 'none';
+        }
+    });
+
+    // Refresh table when any filter checkbox changes
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('filter-checkbox')) {
             var checkboxes = document.querySelectorAll('.filter-checkbox:checked');
             var activeKeys = [];
             for (var i = 0; i < checkboxes.length; i++) {
                 activeKeys.push(checkboxes[i].getAttribute('data-filter-key'));
             }
             var filtersParam = activeKeys.join(',');
+
+            // Update hidden filter-state input for HTMX includes
+            var filterState = document.getElementById('filter-state');
+            if (filterState) filterState.value = filtersParam;
+
             var search = document.getElementById('search-input');
             var since = document.querySelector('[name="since"]');
             var params = 'filters=' + encodeURIComponent(filtersParam);
@@ -773,6 +759,338 @@
                 target: '#table-container',
                 swap: 'innerHTML'
             });
+        }
+    });
+
+    // Refresh table when date filter changes
+    document.body.addEventListener('change', function (e) {
+        if (e.target && e.target.name === 'since') {
+            var params = 'since=' + encodeURIComponent(e.target.value);
+            var search = document.getElementById('search-input');
+            if (search && search.value) {
+                params += '&search=' + encodeURIComponent(search.value);
+            }
+            var filterState = document.getElementById('filter-state');
+            if (filterState && filterState.value) {
+                params += '&filters=' + encodeURIComponent(filterState.value);
+            }
+            var perPage = document.querySelector('[name="per_page"]');
+            if (perPage) {
+                params += '&per_page=' + encodeURIComponent(perPage.value);
+            }
+            htmx.ajax('GET', '/table?' + params, {
+                target: '#table-container',
+                swap: 'innerHTML'
+            });
+        }
+    });
+
+})();
+
+// -- Settings: Sort Config ---------------------------------------------------
+// Note: sort config is loaded inline in settings.html via loadSortConfig()
+
+var SORT_COLUMNS = [
+    'date_published', 'platform', 'title', 'company',
+    'modality', 'salary', 'location', 'status'
+];
+
+function getSortConfig() {
+    var raw = localStorage.getItem('fb-sort-config');
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch (e) { return []; }
+}
+
+function saveSortConfig() {
+    var container = document.getElementById('sort-config-container');
+    if (!container) return;
+    var rows = container.querySelectorAll('.sort-level');
+    var config = [];
+    for (var i = 0; i < rows.length; i++) {
+        var col = rows[i].querySelector('.sort-col-select').value;
+        var dir = rows[i].querySelector('.sort-dir-select').value;
+        config.push({col: col, dir: dir});
+    }
+    if (config.length === 0) {
+        localStorage.removeItem('fb-sort-config');
+    } else {
+        localStorage.setItem('fb-sort-config', JSON.stringify(config));
+    }
+}
+
+function addSortLevel(col, dir) {
+    var container = document.getElementById('sort-config-container');
+    if (!container) return;
+
+    var row = document.createElement('div');
+    row.className = 'settings-row sort-level';
+
+    // Column select
+    var colSelect = document.createElement('select');
+    colSelect.className = 'sort-col-select settings-select';
+    for (var i = 0; i < SORT_COLUMNS.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = SORT_COLUMNS[i];
+        opt.textContent = SORT_COLUMNS[i];
+        if (SORT_COLUMNS[i] === col) opt.selected = true;
+        colSelect.appendChild(opt);
+    }
+    colSelect.addEventListener('change', saveSortConfig);
+
+    // Direction select
+    var dirSelect = document.createElement('select');
+    dirSelect.className = 'sort-dir-select settings-select';
+    var dirs = ['desc', 'asc'];
+    for (var i = 0; i < dirs.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = dirs[i];
+        opt.textContent = dirs[i];
+        if (dirs[i] === dir) opt.selected = true;
+        dirSelect.appendChild(opt);
+    }
+    dirSelect.addEventListener('change', saveSortConfig);
+
+    // Remove button
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'sort-remove-btn';
+    removeBtn.textContent = '\u00d7';
+    removeBtn.setAttribute('type', 'button');
+    removeBtn.setAttribute('title', 'Remove sort level');
+    removeBtn.onclick = function () { removeSortLevel(this); };
+
+    row.appendChild(colSelect);
+    row.appendChild(dirSelect);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+
+    return row;
+}
+
+function removeSortLevel(btn) {
+    var row = btn.closest('.sort-level');
+    if (!row) return;
+    row.parentNode.removeChild(row);
+
+    // If no rows left, add a default one
+    var container = document.getElementById('sort-config-container');
+    if (container && container.querySelectorAll('.sort-level').length === 0) {
+        addSortLevel('date_published', 'desc');
+    }
+    saveSortConfig();
+}
+
+function loadSortConfig() {
+    var config = getSortConfig();
+    if (config.length === 0) {
+        addSortLevel('date_published', 'desc');
+    } else {
+        for (var i = 0; i < config.length; i++) {
+            addSortLevel(config[i].col, config[i].dir);
+        }
+    }
+}
+
+// -- Status Management: clickable badges to mark jobs as postulado ----------
+
+function toggleStatusMenu(el) {
+    // Close any other open status menus
+    document.querySelectorAll('.status-menu').forEach(function(m) {
+        if (m !== el.nextElementSibling) {
+            m.style.display = 'none';
+            m.style.position = '';  // restore default
+        }
+    });
+    var menu = el.nextElementSibling;
+    if (menu && menu.classList.contains('status-menu')) {
+        var isOpening = menu.style.display === 'none' || (menu.style.display !== 'block' && getComputedStyle(menu).display === 'none');
+        menu.style.display = isOpening ? 'block' : 'none';
+        if (isOpening) {
+            // Switch to position:fixed to escape .table-responsive overflow clipping
+            menu.style.position = 'fixed';
+            menu.style.top = '';
+            menu.style.bottom = '';
+            menu.style.left = '';
+            menu.style.right = '';
+
+            // Get badge viewport position
+            var badgeRect = el.getBoundingClientRect();
+            var vw = window.innerWidth;
+            var vh = window.innerHeight;
+
+            // Position menu below badge, aligned left
+            var menuTop = badgeRect.bottom + 2;
+            var menuLeft = badgeRect.left;
+
+            // Force layout so getBoundingClientRect is accurate with the new fixed position
+            menu.style.top = menuTop + 'px';
+            menu.style.left = menuLeft + 'px';
+            menu.style.right = 'auto';
+            menu.style.bottom = 'auto';
+            menu.offsetHeight;
+            var rect = menu.getBoundingClientRect();
+
+            // Flip horizontally if it overflows viewport right edge
+            if (rect.right > vw - 4) {
+                menu.style.left = 'auto';
+                menu.style.right = (vw - badgeRect.right) + 'px';
+            }
+
+            // Flip vertically if it overflows viewport bottom edge
+            if (rect.bottom > vh - 4) {
+                menu.style.top = 'auto';
+                menu.style.bottom = (vh - badgeRect.top + 2) + 'px';
+            }
+        } else {
+            // Restore default positioning
+            menu.style.position = '';
+            menu.style.top = '';
+            menu.style.bottom = '';
+            menu.style.left = '';
+            menu.style.right = '';
+        }
+    }
+}
+
+function setStatus(jobId, status, btn) {
+    var menu = btn.closest('.status-menu');
+    if (menu) menu.style.display = 'none';
+
+    fetch('/job/' + jobId + '/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: status }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            // Build URL preserving all current filter/pagination state
+            var params = [];
+            var searchEl = document.getElementById('search-input');
+            if (searchEl && searchEl.value) params.push('search=' + encodeURIComponent(searchEl.value));
+            var sinceEl = document.querySelector('[name="since"]');
+            if (sinceEl && sinceEl.value) params.push('since=' + encodeURIComponent(sinceEl.value));
+            var filterEl = document.getElementById('filter-state');
+            if (filterEl && filterEl.value) params.push('filters=' + encodeURIComponent(filterEl.value));
+            var perPageEl = document.getElementById('per-page-select');
+            if (perPageEl) params.push('per_page=' + encodeURIComponent(perPageEl.value));
+            if (document.querySelector('.col-check')) params.push('select=1');
+            var pageInfo = document.querySelector('.pagination-info');
+            if (pageInfo) {
+                var match = pageInfo.textContent.match(/Page\s+(\d+)\s+of/);
+                if (match) params.push('page=' + match[1]);
+            }
+            var url = '/table' + (params.length ? '?' + params.join('&') : '');
+            htmx.ajax('GET', url, {target: '#table-container', swap: 'innerHTML'});
+        }
+    })
+    .catch(function(err) {
+        console.error('[Status] Error updating status:', err);
+    });
+}
+
+// -- Bulk Status: header-level dropdown when SELECT active & checkboxes checked --
+// REMOVED: SELECT button and bulk status removed per user request.
+// Status changes are applied per-row via the status-badge dropdown menu.
+
+// Close status menus when clicking outside
+document.body.addEventListener('click', function(e) {
+    if (!e.target.closest('.status-badge') && !e.target.closest('.status-menu')) {
+        document.querySelectorAll('.status-menu').forEach(function(m) {
+            m.style.display = 'none';
         });
     }
-})();
+});
+
+// -- Sort State: populate #sort-state from localStorage on STATUS tab load -------
+
+/**
+ * Convert localStorage fb-sort-config (JSON array) to compact col:dir,col:dir format.
+ * Returns empty string if no config.
+ */
+function getSortParam() {
+    var config = getSortConfig();
+    if (config.length === 0) return '';
+    var parts = [];
+    for (var i = 0; i < config.length; i++) {
+        parts.push(config[i].col + ':' + config[i].dir);
+    }
+    return parts.join(',');
+}
+
+// Populate #sort-state when STATUS tab is loaded
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'main-content') {
+        var sortState = document.getElementById('sort-state');
+        if (sortState) {
+            sortState.value = getSortParam();
+        }
+    }
+});
+
+// -- Header-click handler: toggle sort direction and reload table with page=1 -----
+
+document.body.addEventListener('click', function(e) {
+    var th = e.target.closest('.th-sortable');
+    if (!th) return;
+
+    var col = th.getAttribute('data-col');
+    if (!col) return;
+
+    var sortState = document.getElementById('sort-state');
+    if (!sortState) return;
+
+    var currentSort = sortState.value || '';
+    var parts = currentSort ? currentSort.split(',') : [];
+    var found = false;
+    var newParts = [];
+
+    for (var i = 0; i < parts.length; i++) {
+        var pair = parts[i].split(':');
+        if (pair[0] === col) {
+            found = true;
+            // Toggle direction
+            var newDir = pair[1] === 'asc' ? 'desc' : 'asc';
+            newParts.push(col + ':' + newDir);
+        } else {
+            newParts.push(parts[i]);
+        }
+    }
+
+    if (!found) {
+        // Column not sorted yet — add it as the primary sort (asc)
+        newParts.unshift(col + ':asc');
+    }
+
+    var newSort = newParts.join(',');
+    sortState.value = newSort;
+
+    // Reload table with new sort, resetting page to 1
+    var params = 'sort=' + encodeURIComponent(newSort) + '&page=1';
+    var search = document.getElementById('search-input');
+    if (search && search.value) params += '&search=' + encodeURIComponent(search.value);
+    var since = document.querySelector('[name="since"]');
+    if (since) params += '&since=' + encodeURIComponent(since.value);
+    var filterState = document.getElementById('filter-state');
+    if (filterState && filterState.value) params += '&filters=' + encodeURIComponent(filterState.value);
+
+    htmx.ajax('GET', '/table?' + params, {
+        target: '#table-container',
+        swap: 'innerHTML'
+    });
+});
+
+// -- Re-populate #sort-state after any table swap (keeps indicator rendering in sync) --
+
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target && evt.detail.target.id === 'table-container') {
+        var sortState = document.getElementById('sort-state');
+        if (sortState) {
+            // If the table HTML contains a sort value (from template context), sync it
+            var tableHtml = evt.detail.target.innerHTML;
+            var sortMatch = tableHtml.match(/sort[=:]([a-z_]+:[a-z]+(?:,[a-z_]+:[a-z]+)*)/);
+            if (sortMatch) {
+                // The sort value is already in the sort-state; keep it in sync
+            }
+        }
+    }
+});

@@ -56,16 +56,20 @@ def seeded_db(tmp_path: Path) -> str:
 
 @pytest.fixture
 def client(seeded_db: str):
-    """FastAPI TestClient with patched DB_PATH."""
+    """FastAPI TestClient with patched DB_PATH for server AND status routes."""
     import src.dashboard.server as server
+    import src.status.routes as status_routes
     original = server.DB_PATH
+    orig_status = status_routes.DB_PATH
     server.DB_PATH = seeded_db
+    status_routes.DB_PATH = seeded_db
     try:
         from src.dashboard.server import app
         with TestClient(app) as c:
             yield c
     finally:
         server.DB_PATH = original
+        status_routes.DB_PATH = orig_status
 
 
 # =============================================================================
@@ -77,13 +81,13 @@ class TestDinoCSS:
 
     def test_css_has_expanded_class(self, client):
         """RED: style.css should define #dino-banner.expanded selector."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         assert "#dino-banner.expanded" in css
 
     def test_css_expanded_height_45px(self, client):
         """RED: #dino-banner.expanded should set height: 160px."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         # Must be inside a #dino-banner.expanded context
         expanded_section = css[css.find("#dino-banner.expanded"):]
@@ -91,28 +95,28 @@ class TestDinoCSS:
 
     def test_css_expanded_transition(self, client):
         """RED: .scan-progress should have CSS transition on height."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         assert "transition" in css
         assert "height" in css
 
     def test_css_has_dino_canvas_positioning(self, client):
         """RED: #dino-canvas should be absolute positioned."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         assert "#dino-canvas" in css
         assert "absolute" in css
 
     def test_css_canvas_pointer_events_none(self, client):
         """RED: #dino-canvas should have pointer-events: none."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         assert "pointer-events" in css
         assert "none" in css
 
     def test_css_mobile_35px_height(self, client):
         """RED: at ≤768px, expanded height should be 100px."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         css = response.text
         # Find media query for max-width: 768px
         media_matches = re.findall(
@@ -133,7 +137,7 @@ class TestDinoCSSSection:
 
     def test_dino_css_section_comment(self, client):
         """RED: style.css should have a Dino-specific section comment."""
-        response = client.get("/static/style.css")
+        response = client.get("/static/scan.css")
         assert "Dino" in response.text or "dino" in response.text.lower()
 
 
@@ -146,7 +150,7 @@ class TestDinoHTML:
 
     def test_progress_template_has_canvas(self):
         """RED: progress.html should contain a canvas element."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
 
         state = ScanState()
@@ -288,10 +292,10 @@ class TestDinoServerSide:
     def test_scan_trigger_returns_progress_html(self, client):
         """RED: GET /scan should return progress HTML with canvas."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
 
         scan_state.reset()
-        with patch("src.dashboard.server.run_scan"):
+        with patch("src.scan.routes.run_scan"):
             response = client.get("/scan")
         assert response.status_code == 200
         body = response.text

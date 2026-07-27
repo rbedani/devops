@@ -1,6 +1,6 @@
 """Unit tests for the dashboard filter registry."""
 
-from src.dashboard.filters import DEFAULT_FILTERS, Filter, FilterRegistry
+from src.status.filters import DEFAULT_FILTERS, Filter, FilterRegistry
 
 
 class TestFilter:

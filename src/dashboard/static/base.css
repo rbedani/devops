@@ -1,0 +1,665 @@
+/* =========================================================================
+   Job Dashboard — Base Styles
+   CSS custom properties, reset, shell layout, buttons, scrollbar, themes.
+   Dark theme (default) via [data-theme="dark"], light via [data-theme="light"].
+   ========================================================================= */
+
+/* -- Dark Theme Variables (default) ------------------------------------- */
+
+html[data-theme="dark"] {
+    --bg-primary: #1c1c1c;
+    --bg-secondary: #222222;
+    --bg-tertiary: #2a2a2a;
+    --bg-hover: #333333;
+    --accent: #5f87ff;
+    --accent2: #22d3ee;
+    --accent-hover: #4a6fdb;
+    --accent-dim: rgba(95, 135, 255, 0.2);
+    --text-primary: #f0f0f0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #a5a5a5;
+    --text-dim: #6f6f6f;
+    --border-color: #6f6f6f;
+    --border-muted: #555555;
+    --border: #6f6f6f;
+    --status-green: #22c55e;
+    --status-yellow: #ffd75f;
+    --status-gray: #6b7280;
+    --status-red: #ef4444;
+    --bg-success: rgba(34, 197, 94, 0.15);
+    --text-success: #22c55e;
+    --border-success: rgba(34, 197, 94, 0.4);
+    --font-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-ui: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-system: 'Press Start 2P', monospace;
+    --logo-job: #f0f0f0;
+    --logo-dashboard: #a5a5a5;
+    --logo-shadow: rgba(120, 120, 140, 0.45);
+}
+
+/* -- Light Theme Variables ---------------------------------------------- */
+
+html[data-theme="light"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f5f5f7;
+    --bg-tertiary: #e5e5ea;
+    --bg-hover: #ffffff;
+    --accent: #007aff;
+    --accent2: #22d3ee;
+    --accent-hover: #0056b3;
+    --accent-dim: rgba(0, 122, 255, 0.2);
+    --text-primary: #1d1d1f;
+    --text-secondary: #424245;
+    --text-muted: #6e6e73;
+    --text-dim: #86868b;
+    --border-color: #d2d2d7;
+    --border-muted: #e5e5ea;
+    --border: #d2d2d7;
+    --status-green: #30d158;
+    --status-yellow: #ff9f0a;
+    --status-gray: #86868b;
+    --status-red: #ff3b30;
+    --bg-success: rgba(48, 209, 88, 0.15);
+    --text-success: #30d158;
+    --border-success: rgba(48, 209, 88, 0.4);
+    --font-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-ui: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-system: 'Press Start 2P', monospace;
+    --logo-job: #1d1d1f;
+    --logo-dashboard: #6e6e73;
+    --logo-shadow: rgba(80, 80, 100, 0.35);
+}
+
+/* -- Fallback :root (when no data-theme is set) ------------------------- */
+
+:root {
+    --bg-primary: #1c1c1c;
+    --bg-secondary: #222222;
+    --bg-tertiary: #2a2a2a;
+    --bg-hover: #333333;
+    --accent: #5f87ff;
+    --accent2: #22d3ee;
+    --accent-hover: #4a6fdb;
+    --accent-dim: rgba(95, 135, 255, 0.2);
+    --text-primary: #f0f0f0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #a5a5a5;
+    --text-dim: #6f6f6f;
+    --border-color: #6f6f6f;
+    --border-muted: #555555;
+    --status-green: #22c55e;
+    --status-yellow: #ffd75f;
+    --status-gray: #6b7280;
+    --status-red: #ef4444;
+    --bg-success: rgba(34, 197, 94, 0.15);
+    --text-success: #22c55e;
+    --border-success: rgba(34, 197, 94, 0.4);
+    --font-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-ui: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-system: 'Press Start 2P', monospace;
+    --logo-job: #f0f0f0;
+    --logo-dashboard: #a5a5a5;
+    --logo-shadow: rgba(120, 120, 140, 0.45);
+}
+
+/* -- Amber CRT Theme Variables ------------------------------------------ */
+
+html[data-theme="amber"] {
+    --bg-primary: #1a1408;
+    --bg-secondary: #231d0e;
+    --bg-tertiary: #2d2614;
+    --bg-hover: #3a3019;
+    --accent: #ffb000;
+    --accent2: #ffd54f;
+    --accent-hover: #e6a000;
+    --accent-dim: rgba(255, 176, 0, 0.2);
+    --text-primary: #ffe8b0;
+    --text-secondary: #c4a550;
+    --text-muted: #8a7540;
+    --text-dim: #665a30;
+    --border-color: #5a4a20;
+    --border-muted: #3a3010;
+    --border: #5a4a20;
+    --status-green: #a0d080;
+    --status-yellow: #ffe080;
+    --status-gray: #7a6a40;
+    --status-red: #ff6060;
+    --bg-success: rgba(160, 208, 128, 0.15);
+    --text-success: #a0d080;
+    --border-success: rgba(160, 208, 128, 0.4);
+    --font-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-ui: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
+    --font-system: 'Press Start 2P', monospace;
+    --logo-job: #ffe8b0;
+    --logo-dashboard: #c4a550;
+    --logo-shadow: rgba(160, 120, 60, 0.45);
+}
+
+/* -- Retro Pixel Switch (dark/light toggle) ------------------------------ */
+
+.theme-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-tertiary);
+    border: 3px solid var(--border-color);
+    /* Hard edges to match Press Start 2P pixel aesthetic */
+    border-radius: 0;
+    transition: background 0.1s, border-color 0.1s;
+}
+
+.theme-slider::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    width: 12px;
+    height: 12px;
+    background: var(--text-primary);
+    /* Square knob — pixel-perfect */
+    border-radius: 0;
+    /* Transform base para que la transición sea suave: el browser
+       transiciona entre dos transform, no entre left y transform */
+    transform: translateX(0);
+    transition: transform 0.1s, background 0.1s;
+}
+
+.theme-switch input:checked + .theme-slider::before {
+    transform: translateX(26px);
+}
+
+/* -- Reset & Base -------------------------------------------------------- */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+}
+
+/* MS-DOS retro reset: los navegadores no siempre respetan border-radius: 0
+   en form elements nativos — lo forzamos explícito */
+button, input, select, textarea {
+    border-radius: 0;
+}
+button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* -- Dashboard Shell ----------------------------------------------------- */
+
+.dashboard-shell {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0;
+    border-bottom: 1px solid var(--border-muted);
+    margin-bottom: 0;
+    background: var(--bg-primary);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.dashboard-header .logo {
+    height: 88px;
+    width: auto;
+    display: block;
+    image-rendering: pixelated;
+    /* Colors inherited via CSS custom properties from data-theme */
+}
+
+.dashboard-footer {
+    padding: 16px 0;
+    border-top: 1px solid var(--border-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+
+.footer-stat {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+.footer-version {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: var(--font-system);
+}
+
+.footer-text {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+}
+
+/* -- Header Menu --------------------------------------------------------- */
+
+.header-menu {
+    margin-bottom: 0;
+}
+
+.menu-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-muted);
+}
+
+/* Todos los elementos del menu row — misma altura y fuente MS-DOS */
+.menu-row input,
+.menu-row select,
+.menu-row .btn {
+    height: 36px;
+    box-sizing: border-box;
+    font-family: var(--font-system) !important;
+    font-size: 0.7rem !important;
+    line-height: 1;
+}
+
+.search-box {
+    flex: 1 1 180px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-box:focus {
+    border-color: var(--accent);
+}
+
+.search-box::placeholder {
+    color: var(--text-dim);
+}
+
+/* -- Buttons ------------------------------------------------------------- */
+
+/* Universal button reset — todos los botones usan SYSTEM font MS-DOS */
+.btn,
+button:not(.theme-slider):not(.debug-label) {
+    font-family: var(--font-system) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 16px;
+    min-height: 36px;
+    line-height: 1.2;
+    font-weight: 400;
+    border: 1px solid var(--accent);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-scan {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.btn-scan:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.btn-scan-disabled,
+.btn-scan:disabled {
+    background: var(--bg-secondary);
+    color: var(--text-dim);
+    border-color: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.btn-scan-disabled:hover,
+.btn-scan:disabled:hover {
+    background: var(--bg-secondary);
+}
+
+.btn-toggle {
+    background: transparent;
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-toggle:hover {
+    background: var(--accent-dim);
+}
+
+.btn-toggle-active {
+    background: var(--accent);
+    color: var(--bg-primary);
+    border-color: var(--accent);
+}
+
+.btn-toggle-active:hover {
+    background: var(--accent-hover);
+}
+
+.btn-apply {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    cursor: pointer;
+    opacity: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+}
+
+.btn-apply:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-apply:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* -- Debug Checkbox ------------------------------------------------------ */
+
+.debug-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 59, 48, 0.08);
+    border: 1px solid rgba(255, 59, 48, 0.25);
+    cursor: pointer;
+    font-size: 0.7rem;
+    font-family: var(--font-system);
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.debug-label {
+    color: var(--status-red);
+    font-weight: 600;
+}
+
+/* -- DATA Button (header right) ------------------------------------------ */
+
+.btn-data {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+
+.btn-data:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+}
+
+.btn-data-active,
+.btn-data-active:hover {
+    background: var(--accent);
+    color: var(--accent-hover);
+    border-color: var(--accent);
+}
+
+.btn-clean {
+    background: transparent;
+    color: var(--status-red);
+    border-color: var(--status-red);
+}
+
+.btn-clean:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* -- STOP Button (header-left) ------------------------------------------- */
+
+.btn-stop {
+    background: var(--status-red);
+    color: #fff;
+    border-color: var(--status-red);
+}
+
+.btn-stop:hover {
+    background: #cc3333;
+    border-color: #cc3333;
+}
+
+/* -- Date Filter Dropdown ----------------------------------------------- */
+
+.date-filter {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--font-system);
+    font-size: 0.7rem;
+    text-align: center;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+    min-width: 100px;
+}
+
+.date-filter:focus {
+    border-color: var(--accent);
+}
+
+/* -- Tab Bar ------------------------------------------------------------- */
+
+.tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border-muted);
+    background: transparent;
+}
+
+.tab {
+    display: inline-block;
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-system);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    transition: color 0.2s, border-color 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+    border-bottom-color: var(--text-dim);
+}
+
+.tab-active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 700;
+}
+
+/* -- Scrollbar (thin) ---------------------------------------------------- */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-muted);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-color);
+}
+
+/* -- Responsive Table Wrapper ------------------------------------------- */
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--border-muted);
+    border-radius: 2px;
+}
+
+/* -- Refresh Button ---------------------------------------------------- */
+
+.btn-refresh {
+    background: var(--bg-tertiary);
+    color: var(--accent2);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    transition: background 0.2s, border-color 0.2s;
+}
+.btn-refresh:hover { background: var(--bg-hover); border-color: var(--accent2); }
+
+/* -- Settings Panel ---------------------------------------------------- */
+
+.settings-tab h2 { margin-bottom: 1rem; }
+.settings-section { border: 1px solid var(--border); padding: 1.25rem; margin-bottom: 1rem; border-radius: 4px; }
+.settings-section legend { font-weight: 700; padding: 0 0.5rem; color: var(--accent); }
+.settings-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.settings-row label { min-width: 120px; font-weight: 600; }
+.settings-select { padding: 0.4rem 0.6rem; background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 3px; min-width: 200px; }
+.settings-range-group { display: flex; align-items: center; gap: 0.75rem; flex: 1; }
+.settings-range { flex: 1; max-width: 200px; accent-color: var(--accent); }
+.settings-range-value { min-width: 40px; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; }
+.settings-checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.settings-checkbox-label input[type="checkbox"] { accent-color: var(--accent); }
+.settings-hint { font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 0 120px; }
+.settings-info p { margin: 0.25rem 0; line-height: 1.6; }
+.settings-info strong { color: var(--accent); }
+
+/* -- Compact Mode ------------------------------------------------------ */
+
+body.compact-mode .job-table th,
+body.compact-mode .job-table td { padding: 0.25rem 0.5rem; font-size: 0.78rem; }
+body.compact-mode .status-badge { font-size: 0.7rem; padding: 0.1rem 0.4rem; }
+body.compact-mode .dashboard-header { padding: 0.4rem 1rem; }
+
+/* -- Danger Zone (Settings) -------------------------------------------- */
+
+.settings-danger {
+    border: 1px solid var(--status-red) !important;
+    border-left: 4px solid var(--status-red) !important;
+}
+.settings-danger legend {
+    color: var(--status-red) !important;
+}
+.settings-danger .settings-row {
+    justify-content: space-between;
+}
+.settings-danger-info {
+    flex: 1;
+}
+.settings-danger-info strong {
+    color: var(--status-red);
+}
+.settings-danger-info .settings-hint {
+    margin: 0.25rem 0 0 0;
+}
+
+.btn-danger {
+    background: transparent;
+    color: var(--status-red);
+    border: 1px solid var(--status-red);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: var(--font-system) !important;
+    font-size: 0.7rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.btn-danger:hover {
+    background: var(--status-red);
+    color: #fff;
+    border-color: var(--status-red);
+}
+
+/* -- Flash Messages ------------------------------------------------------- */
+
+.flash-success {
+    background: var(--bg-success);
+    color: var(--text-success);
+    border: 1px solid var(--border-success);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}

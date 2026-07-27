@@ -6,14 +6,15 @@ from pathlib import Path
 
 import pytest
 
-from src.models.job import Job, JobTag
-from src.db.database import JobDatabase
+from src.core.models.job import Job, JobTag
+from src.core.db.database import JobDatabase, run_migrations
 
 
 @pytest.fixture
 def tmp_db(tmp_path: Path) -> JobDatabase:
-    """Create a temporary in-memory-like DB for testing."""
+    """Create a temporary DB for testing."""
     db_path = tmp_path / "test_jobs.db"
+    run_migrations(db_path)
     return JobDatabase(db_path)
 
 
@@ -98,6 +99,7 @@ class TestJobDatabase:
 
     def test_context_manager(self, tmp_path: Path):
         db_path = tmp_path / "ctx.db"
+        run_migrations(db_path)
         with JobDatabase(db_path) as db:
             db.upsert_job(Job(source="test", title="J", url="http://x"))
         # Should be closed after context
@@ -140,3 +142,21 @@ class TestJobDatabase:
             assert fetched.status == "general-error"
             assert fetched.title == "DevOps Engineer"
             assert fetched.company == "Acme"
+
+    def test_delete_all_clears_table(self, tmp_db: JobDatabase):
+        """RED: delete_all should remove all rows and return deleted count."""
+        with tmp_db:
+            for i in range(3):
+                tmp_db.upsert_job(Job(source="test", title=f"Job {i}", url=f"http://x/{i}"))
+            assert tmp_db.count() == 3
+            deleted = tmp_db.delete_all()
+            assert deleted == 3
+            assert tmp_db.count() == 0
+
+    def test_delete_all_empty_table_returns_zero(self, tmp_db: JobDatabase):
+        """TRIANGULATE: delete_all on empty table should return 0."""
+        with tmp_db:
+            assert tmp_db.count() == 0
+            deleted = tmp_db.delete_all()
+            assert deleted == 0
+            assert tmp_db.count() == 0

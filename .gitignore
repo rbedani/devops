@@ -50,6 +50,8 @@ htmlcov/
 
 # Gentle AI system files
 .atl/
+.engram/
+openspec/
 
 # User data
 data/
@@ -66,3 +68,12 @@ Thumbs.db
 
 # Reports
 /reports/
+
+# Dead code from refactoring (superseded by src/core/)
+src/db/
+src/config/
+src/models/
+
+# Audit / dev-only scripts
+scripts/audit_*.py
+scripts/inspect_opencode.py

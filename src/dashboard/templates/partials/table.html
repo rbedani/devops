@@ -1,22 +1,20 @@
 <div class="table-responsive"><table class="job-table">
     <thead>
         <tr>
-            {% if select %}<th class="col-check"><input type="checkbox" id="select-all" class="select-all-cb"></th>{% endif %}
-            <th class="col-date">date_published</th>
-            <th class="col-platform">platform</th>
-            <th class="col-title">title</th>
-            <th class="col-company">company</th>
-            <th class="col-modality">modality</th>
-            <th class="col-salary">salary</th>
-            <th class="col-location">location</th>
+            <th class="col-date th-sortable" data-col="date_published">date_published{% if sort and 'date_published:asc' in sort %} ↑{% elif sort and 'date_published:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-platform th-sortable" data-col="platform">platform{% if sort and 'platform:asc' in sort %} ↑{% elif sort and 'platform:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-title th-sortable" data-col="title">title{% if sort and 'title:asc' in sort %} ↑{% elif sort and 'title:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-company th-sortable" data-col="company">company{% if sort and 'company:asc' in sort %} ↑{% elif sort and 'company:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-modality th-sortable" data-col="modality">modality{% if sort and 'modality:asc' in sort %} ↑{% elif sort and 'modality:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-salary th-sortable" data-col="salary">salary{% if sort and 'salary:asc' in sort %} ↑{% elif sort and 'salary:desc' in sort %} ↓{% endif %}</th>
+            <th class="col-location th-sortable" data-col="location">location{% if sort and 'location:asc' in sort %} ↑{% elif sort and 'location:desc' in sort %} ↓{% endif %}</th>
             <th class="col-link">link</th>
-            <th class="col-status">status</th>
+            <th class="col-status th-sortable" data-col="status">status{% if sort and 'status:asc' in sort %} ↑{% elif sort and 'status:desc' in sort %} ↓{% endif %}</th>
         </tr>
     </thead>
     <tbody>
         {% for job in jobs %}
         <tr class="job-row">
-            {% if select %}<td class="cell-check"><input type="checkbox" class="job-select" value="{{ job.id }}"></td>{% endif %}
             <td class="cell-date">{{ job.date_published }}</td>
             <td class="cell-platform">{{ job.platform }}</td>
             <td class="cell-title">{{ job.title }}</td>
@@ -25,12 +23,24 @@
             <td class="cell-salary">{{ job.salary }}</td>
             <td class="cell-location">{{ job.location }}</td>
             <td class="cell-link"><a href="{{ job.link }}" target="_blank" class="job-link">View</a></td>
-            <td class="cell-status"><span class="status-badge status-{{ job.status|replace(' ', '_') }}">{{ job.status if job.status else "\u2014" }}</span></td>
+            <td class="cell-status">
+                <span class="status-badge status-{{ job.status|replace(' ', '_') if job.status else 'none' }}"
+                      data-job-id="{{ job.id }}"
+                      data-status="{{ job.status or '' }}"
+                      onclick="toggleStatusMenu(this)">
+                    {{ job.status if job.status else "\u2014" }}
+                </span>
+                <div class="status-menu" style="display:none;">
+                    <button class="status-option" data-status="pendiente" onclick="setStatus({{ job.id }}, 'pendiente', this)">⏳ Pendiente</button>
+                    <button class="status-option" data-status="no-aplica" onclick="setStatus({{ job.id }}, 'no-aplica', this)">⏭ No aplica</button>
+                    <button class="status-option" data-status="postulado" onclick="setStatus({{ job.id }}, 'postulado', this)">✅ Postulado</button>
+                </div>
+            </td>
         </tr>
         {% endfor %}
         {% if not jobs %}
         <tr>
-            <td colspan="{% if select %}10{% else %}9{% endif %}" class="cell-empty">No jobs found.</td>
+            <td colspan="9" class="cell-empty">No jobs found.</td>
         </tr>
         {% endif %}
     </tbody>

@@ -1,0 +1,1 @@
+"""SCAN module — scan runner, platform management, and execution routes."""

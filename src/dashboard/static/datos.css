@@ -1,0 +1,340 @@
+/* =========================================================================
+   Job Dashboard — DATOS Module Styles
+   Data panel, form fields, CV upload/zone, platform list.
+   ========================================================================= */
+
+/* -- Data Panel Container -- */
+
+.data-panel {
+    width: 100%;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-muted);
+    margin-top: 0;
+}
+
+.section-container {
+    border-bottom: 1px solid var(--border-muted);
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+}
+
+/* -- Form Group -- */
+
+.datos-form-group {
+    margin-bottom: 16px;
+}
+
+.datos-form-label {
+    display: block;
+    font-family: var(--font-system);
+    font-size: 0.5rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0;
+}
+
+.datos-form-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.datos-form-input:focus {
+    border-color: var(--accent2);
+}
+
+.datos-form-select {
+    padding: 8px 10px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s;
+}
+
+.datos-form-select:focus {
+    border-color: var(--accent2);
+}
+
+/* -- Field Row -- */
+
+.datos-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 8px;
+    padding: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
+}
+
+.datos-field-row .datos-form-group {
+    margin-bottom: 0;
+    flex: 1 1 120px;
+    min-width: 100px;
+}
+
+.datos-field-row .datos-form-group:first-child {
+    flex: 2 1 160px;
+}
+
+.btn-remove-field {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--status-red);
+    border: 1px solid var(--status-red);
+}
+
+.btn-remove-field:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* -- CV Upload Zone -- */
+
+.cv-zone {
+    padding: 20px;
+    border: 2px solid var(--border-muted);
+    background: var(--bg-primary);
+    text-align: center;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+}
+
+.cv-zone:hover {
+    border-color: var(--accent);
+}
+
+.cv-zone-label {
+    display: block;
+    font-family: var(--font-system);
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+}
+
+.cv-zone input[type="file"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cv-file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.cv-upload-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.cv-upload-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cv-zone .btn-upload {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.cv-zone .btn-upload:hover {
+    background: var(--accent-dim);
+}
+
+.btn-cv-upload {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.btn-cv-upload:hover {
+    background: var(--accent-dim);
+}
+
+.cv-upload-date {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+}
+
+/* -- CV Preview -- */
+
+.cv-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
+    margin-bottom: 16px;
+}
+
+.cv-preview-name {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.cv-preview-link {
+    font-family: var(--font-system);
+    font-size: 0.6rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 6px 12px;
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: all 0.2s;
+}
+
+.cv-preview-link:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-cv-delete {
+    background: transparent;
+    color: var(--status-red);
+    border: 1px solid var(--status-red);
+}
+
+.btn-cv-delete:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* -- Platform List -- */
+
+.platform-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px 0;
+}
+
+.platform-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-muted);
+    margin-bottom: 4px;
+}
+
+.platform-item-name {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    min-width: 120px;
+}
+
+.platform-item-url {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-platform-remove {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--status-red);
+    border: 1px solid var(--status-red);
+    text-transform: uppercase;
+}
+
+.btn-platform-remove:hover {
+    background: rgba(255, 59, 48, 0.1);
+}
+
+/* --- Platform enabled/disabled toggle --- */
+
+.platform-disabled {
+    opacity: 0.5;
+    border-color: var(--border-muted);
+}
+
+.platform-disabled .platform-item-name {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.platform-disabled-badge {
+    font-size: 0.55rem;
+    text-transform: uppercase;
+    background: var(--status-red);
+    color: #fff;
+    padding: 1px 5px;
+    margin-left: 6px;
+    font-family: var(--font-mono);
+}
+
+.btn-platform-toggle {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-muted);
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.btn-platform-toggle:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.platform-add-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.platform-add-form .datos-form-group {
+    flex: 1 1 160px;
+    margin-bottom: 0;
+}
+
+.btn-platform-add {
+    flex: 0 0 auto;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.btn-platform-add:hover {
+    background: var(--accent-dim);
+}

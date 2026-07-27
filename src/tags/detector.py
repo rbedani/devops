@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Any
 
-from src.models.job import JobTag
+from src.core.models.job import JobTag
 
 
 @dataclass

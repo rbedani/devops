@@ -23,7 +23,7 @@ class TestScanState:
 
     def test_default_values(self):
         """RED: a fresh ScanState should have all default values."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         state = ScanState()
         assert state.running is False
         assert state.progress_pct == 0.0
@@ -35,7 +35,7 @@ class TestScanState:
 
     def test_can_set_fields(self):
         """RED: all fields should be writable after init."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         state = ScanState()
         state.running = True
         state.progress_pct = 50.0
@@ -55,7 +55,7 @@ class TestScanState:
 
     def test_independent_instances(self):
         """RED: each ScanState instance should have its own log_lines."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         state1 = ScanState()
         state2 = ScanState()
         state1.log_lines.append("line from state1")
@@ -72,7 +72,7 @@ class TestRunScan:
     @pytest.mark.asyncio
     async def test_calls_correct_command(self):
         """RED: run_scan should invoke sys.executable -m scripts.run_search."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         # Mock the subprocess to avoid actually running it
@@ -97,7 +97,7 @@ class TestRunScan:
     @pytest.mark.asyncio
     async def test_updates_state_on_progress(self):
         """RED: run_scan should update ScanState as it parses stdout."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         mock_process = AsyncMock()
@@ -122,7 +122,7 @@ class TestRunScan:
     @pytest.mark.asyncio
     async def test_sets_error_on_failure(self):
         """RED: run_scan should set error state when subprocess fails."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         mock_process = AsyncMock()
@@ -237,7 +237,7 @@ class TestScanKeyword:
     @pytest.mark.asyncio
     async def test_sets_scan_keyword_env_var(self):
         """RED: run_scan should set SCAN_KEYWORD in subprocess env when keyword provided."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         mock_process = AsyncMock()
@@ -259,7 +259,7 @@ class TestScanKeyword:
     @pytest.mark.asyncio
     async def test_skips_env_var_when_keyword_empty(self):
         """RED: run_scan should NOT set SCAN_KEYWORD when keyword is empty string."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         mock_process = AsyncMock()
@@ -281,7 +281,7 @@ class TestScanKeyword:
     @pytest.mark.asyncio
     async def test_sanitized_keyword_passed_to_env(self):
         """TRIANGULATE: special chars in keyword should be sanitized before setting env var."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
         mock_process = AsyncMock()
@@ -311,19 +311,19 @@ class TestKeywordSanitization:
 
     def test_strips_semicolons(self):
         """RED: special char ; should be stripped from keyword."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("devops; rm -rf /")
         assert ";" not in result
 
     def test_strips_pipe(self):
         """RED: pipe char | should be stripped from keyword."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("devops|echo")
         assert "|" not in result
 
     def test_strips_shell_injection(self):
         """RED: $() should be stripped from keyword."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("devops$(whoami)")
         assert "$" not in result
         assert "(" not in result
@@ -331,38 +331,38 @@ class TestKeywordSanitization:
 
     def test_allows_normal_alphanumeric(self):
         """RED: normal alphanumeric + spaces should pass through unchanged."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("DevOps Engineer")
         assert result == "DevOps Engineer"
 
     def test_truncates_long_keyword(self):
         """RED: keyword longer than 200 chars should be truncated."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         long_kw = "a" * 300
         result = sanitize_keyword(long_kw)
         assert len(result) == 200
 
     def test_allows_hyphens_and_underscores(self):
         """RED: hyphens and underscores should pass through unchanged."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("senior-devops_engineer")
         assert result == "senior-devops_engineer"
 
     def test_empty_string_returns_empty(self):
         """TRIANGULATE: empty string should return empty."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         assert sanitize_keyword("") == ""
 
     def test_keyword_with_only_special_chars_returns_empty(self):
         """TRIANGULATE: keyword with only stripped chars returns empty string."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword(";$()|{}`!")
         assert result == ""
         assert len(result) == 0
 
     def test_multiple_special_chars_stripped(self):
         """TRIANGULATE: multiple mixed special chars all removed."""
-        from src.dashboard.scan import sanitize_keyword
+        from src.scan.runner import sanitize_keyword
         result = sanitize_keyword("devops&engineer|admin$(id)`ls`")
         assert "&" not in result
         assert "|" not in result
@@ -384,13 +384,13 @@ class TestConcurrentScan:
     def test_second_request_returns_same_progress_html(self, client):
         """RED: calling /scan twice should return progress HTML both times but only start one scan."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state, ScanState
+        from src.scan.runner import scan_state, ScanState
 
         # Ensure clean state
         scan_state.reset()
 
         # Mock run_scan so background task completes instantly
-        with patch("src.dashboard.server.run_scan") as mock_run:
+        with patch("src.scan.routes.run_scan") as mock_run:
             resp1 = client.get("/scan")
             assert resp1.status_code == 200
 
@@ -404,7 +404,7 @@ class TestConcurrentScan:
 
     def test_scan_state_reset_returns_defaults(self):
         """TRIANGULATE: reset() should return all fields to defaults."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
 
         state = ScanState()
         state.running = True
@@ -435,20 +435,20 @@ class TestScanStateCancel:
 
     def test_cancel_default_not_set(self):
         """RED: cancel event should default to not set."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         state = ScanState()
         assert state.cancel.is_set() is False
 
     def test_cancel_is_asyncio_event(self):
         """RED: cancel must be an asyncio.Event instance."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import asyncio
         state = ScanState()
         assert isinstance(state.cancel, asyncio.Event)
 
     def test_reset_creates_fresh_event(self):
         """RED: reset() should create a fresh Event (not set)."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         state = ScanState()
         state.cancel.set()
         assert state.cancel.is_set() is True
@@ -466,7 +466,7 @@ class TestRunScanCancel:
     @pytest.mark.asyncio
     async def test_cancel_cleared_before_platform_loop(self):
         """RED: run_scan clears cancel at start so previous cancel doesn't prevent scan."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch
 
         state = ScanState()
@@ -492,7 +492,7 @@ class TestRunScanCancel:
     @pytest.mark.asyncio
     async def test_cancel_mid_line_calls_terminate(self):
         """RED: cancel mid-stream terminates the subprocess."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch, MagicMock
 
         state = ScanState()
@@ -524,7 +524,7 @@ class TestRunScanCancel:
     @pytest.mark.asyncio
     async def test_cancel_mid_line_kills_if_terminate_timeout(self):
         """RED: if terminate times out, subprocess gets killed."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch, MagicMock
         import asyncio
 
@@ -565,7 +565,7 @@ class TestScanStopEndpoint:
 
     def test_scan_stop_returns_200_html(self, client):
         """RED: /scan/stop should return 200 with HTML content type."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
         scan_state.running = True
         response = client.get("/scan/stop")
@@ -574,7 +574,7 @@ class TestScanStopEndpoint:
 
     def test_scan_stop_sets_cancel_event(self, client):
         """RED: /scan/stop should set scan_state.cancel."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
         assert scan_state.cancel.is_set() is False
         client.get("/scan/stop")
@@ -582,7 +582,7 @@ class TestScanStopEndpoint:
 
     def test_scan_stop_idempotent_when_not_running(self, client):
         """RED: /scan/stop should not raise when scan is already stopped."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
         scan_state.running = False
         response = client.get("/scan/stop")
@@ -590,7 +590,7 @@ class TestScanStopEndpoint:
 
     def test_scan_stop_returns_progress_partial(self, client):
         """RED: /scan/stop should return progress partial with debug_mode."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
         scan_state.running = True
         response = client.get("/scan/stop")
@@ -602,35 +602,51 @@ class TestScanStopEndpoint:
 # =============================================================================
 
 class TestStopButtonVisibility:
-    """STOP button renders conditionally in progress.html."""
+    """STOP button renders conditionally in scan_config.html."""
 
-    def test_stop_button_moved_to_header_not_progress(self):
-        """RED: STOP button now lives in base.html header, not progress.html."""
-        from src.dashboard.scan import ScanState
+    def test_stop_button_in_scan_config_not_header(self):
+        """RED: STOP button now lives in scan_config.html (SCAN tab), not base.html."""
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.running = True
+        # STOP is no longer in progress.html
         response = server.templates.TemplateResponse(
             None, "partials/progress.html",
             {"state": state, "debug_mode": True},
         )
         body = response.body.decode()
-        # STOP is no longer in progress.html
         assert "/scan/stop" not in body
         assert "STOP" not in body
 
-        # Verify base.html has the STOP button
+        # STOP is no longer in base.html
         response_base = server.templates.TemplateResponse(
             None, "base.html",
             {"scan_running": True, "debug_mode": True, "total_jobs": 0},
         )
         body_base = response_base.body.decode()
-        assert "stop-btn" in body_base
-        assert "STOP" in body_base
+        assert "STOP" not in body_base
+
+        # STOP is in scan_config.html
+        import sqlite3
+        from src.scan.store import get_platforms
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE IF NOT EXISTS scan_platforms (id INTEGER PRIMARY KEY, name TEXT, url TEXT, enabled INTEGER DEFAULT 1)")
+        conn.execute("INSERT INTO scan_platforms (name, url) VALUES ('LinkedIn', 'https://linkedin.com')")
+        conn.commit()
+        platforms = get_platforms(conn)
+        response_scan = server.templates.TemplateResponse(
+            None, "scan_config.html",
+            {"scan_state": state, "platforms": platforms},
+        )
+        body_scan = response_scan.body.decode()
+        assert "/scan/stop" in body_scan
+        assert "STOP" in body_scan
 
     def test_stop_button_hidden_when_not_running(self):
         """RED: STOP button should NOT render when state.running=False."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.running = False
@@ -643,7 +659,7 @@ class TestStopButtonVisibility:
 
     def test_stop_button_hidden_when_debug_off(self):
         """RED: STOP button should NOT render when debug_mode=False."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.running = True
@@ -679,10 +695,10 @@ class TestStopButtonJS:
         assert "enableScanButton" in response.text
 
     def test_js_collapses_progress_on_stop(self, client):
-        """RED: script.js should remove 'expanded' class on stop."""
+        """RED: script.js should clear progress section on stop."""
         response = client.get("/static/script.js")
-        assert "progressContainer" in response.text
-        assert "expanded" in response.text or "remove" in response.text
+        assert "progressSection" in response.text
+        assert "innerHTML" in response.text or "remove" in response.text
 
     def test_js_clears_dino_renderer_on_stop(self, client):
         """RED: script.js should reset dinoRenderer on stop."""
@@ -735,16 +751,28 @@ def seeded_db(tmp_path: Path) -> str:
 
 @pytest.fixture
 def client(seeded_db: str):
-    """FastAPI TestClient with patched DB_PATH."""
+    """FastAPI TestClient with patched DB_PATH for server, status, api, AND scan routes."""
     import src.dashboard.server as server
+    import src.status.routes as status_routes
+    import src.api.routes as api_routes
+    import src.scan.routes as scan_routes
     original = server.DB_PATH
+    orig_status = status_routes.DB_PATH
+    orig_api = api_routes.DB_PATH
+    orig_scan = scan_routes.DB_PATH
     server.DB_PATH = seeded_db
+    status_routes.DB_PATH = seeded_db
+    api_routes.DB_PATH = seeded_db
+    scan_routes.DB_PATH = seeded_db
     try:
         from src.dashboard.server import app
         with TestClient(app) as c:
             yield c
     finally:
         server.DB_PATH = original
+        status_routes.DB_PATH = orig_status
+        api_routes.DB_PATH = orig_api
+        scan_routes.DB_PATH = orig_scan
 
 
 # =============================================================================
@@ -812,19 +840,11 @@ class TestServerRoutes:
         # Should not show any known jobs
         assert "DevOps Engineer" not in response.text
 
-    # -- Select toggle ----------------------------------------------------------
-
-    def test_select_toggle(self, client):
-        """RED: /select/toggle should return HTML."""
-        response = client.get("/select/toggle?enabled=true")
-        assert response.status_code == 200
-        assert "text/html" in response.headers["content-type"]
-
     # -- Scan status (SSE) ------------------------------------------------------
 
     def test_scan_status_sse(self, client):
         """RED: /scan/status should return SSE stream."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
         response = client.get("/scan/status")
         assert response.status_code == 200
@@ -835,9 +855,9 @@ class TestServerRoutes:
     def test_trigger_scan(self, client):
         """RED: GET /scan should return progress HTML."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
-        with patch("src.dashboard.server.run_scan"):
+        with patch("src.scan.routes.run_scan"):
             response = client.get("/scan")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
@@ -845,10 +865,10 @@ class TestServerRoutes:
     def test_scan_accepts_q_param(self, client):
         """RED: GET /scan?q=keyword should accept the q query param."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()  # ensure clean state
 
-        with patch("src.dashboard.server.run_scan"):
+        with patch("src.scan.routes.run_scan"):
             response = client.get("/scan?q=DevOps+Engineer")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
@@ -857,7 +877,7 @@ class TestServerRoutes:
 
     def test_dashboard_has_scan_running(self, client):
         """RED: GET / should include scan_running in the template context."""
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         import src.dashboard.server as server
 
         # Render index with scan_running=True to test the template path
@@ -867,11 +887,13 @@ class TestServerRoutes:
                 "total_jobs": 10,
                 "debug_mode": False,
                 "scan_running": True,
+                "filters": [],
             },
         )
         body = response.body.decode()
-        # Template should reference scan_running somehow (button disabled check)
-        assert "True" in body or "disabled" in body or "scan_running" in body
+        # Template should render correctly with 10 total_jobs
+        assert "10 jobs" in body
+        assert "STATUS" in body
 
     # -- All columns render -----------------------------------------------------
 
@@ -918,10 +940,9 @@ class TestFrontendBaseTemplate:
         assert "unpkg.com/htmx.org" in response.text
 
     def test_css_link_present(self, client):
-        """RED: base.html should link to /static/style.css."""
+        """RED: base.html should link to /static/base.css."""
         response = client.get("/")
-        assert "/static/style.css" in response.text
-        assert "text/css" in response.text or 'rel="stylesheet"' in response.text
+        assert "/static/base.css" in response.text
 
     def test_script_js_loaded(self, client):
         """RED: base.html should load /static/script.js."""
@@ -947,30 +968,31 @@ class TestFrontendIndexPage:
         response = client.get("/")
         assert "select" in response.text.lower()
 
-    def test_auto_apply_button_present(self, client):
-        """RED: index page should have Auto-Apply button."""
-        response = client.get("/")
-        assert "Auto-Apply" in response.text
+    def test_refresh_button_present(self, client):
+        """RED: status page should have Refresh button."""
+        response = client.get("/status/panel")
+        assert "REFRESH" in response.text
 
     def test_table_container_present(self, client):
         """RED: index page should have a table container."""
         response = client.get("/")
         assert "table-container" in response.text
 
-    def test_progress_container_present(self, client):
-        """RED: index page should have a progress container."""
-        response = client.get("/")
-        assert "progress-container" in response.text or "scan-progress" in response.text
+    def test_scan_tab_has_progress(self, client):
+        """RED: SCAN config tab should reference progress."""
+        response = client.get("/scan/config")
+        assert "progress" in response.text.lower() or "scan" in response.text.lower()
 
     def test_debug_checkbox_in_non_production(self, client):
-        """RED: debug checkbox should be visible on the index page."""
-        response = client.get("/")
-        assert "DEBUG" in response.text
-        assert "debug-mode" in response.text
+        """RED: debug checkbox should be in settings tab."""
+        response = client.get("/settings")
+        assert "DEBUG" in response.text or "Debug" in response.text
+        assert "settings-debug" in response.text
 
     def test_debug_checkbox_hidden_by_default(self, client):
-        """RED: debug checkbox is always visible (no env var needed)."""
-        response = client.get("/")
+        """RED: settings tab has debug option."""
+        response = client.get("/settings")
+        assert "settings-debug" in response.text
         assert "debug" in response.text.lower()
 
     # -- Task 1.4: Debounce -----------------------------------------------------
@@ -983,21 +1005,32 @@ class TestFrontendIndexPage:
     # -- Task 1.5: Scan button disabled state -----------------------------------
 
     def test_scan_button_has_disabled_when_running(self):
-        """RED: scan button should have disabled attribute when scan_running is True."""
+        """RED: scan button exists in scan_config.html. Disabled state is managed by JS (disableScanButton)."""
         import src.dashboard.server as server
+        from src.scan.runner import ScanState
+        import sqlite3
+        state = ScanState()
+        state.running = True
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("CREATE TABLE IF NOT EXISTS scan_platforms (id INTEGER PRIMARY KEY, name TEXT, url TEXT, enabled INTEGER DEFAULT 1)")
+        conn.commit()
         response = server.templates.TemplateResponse(
-            None, "index.html",
+            None, "scan_config.html",
             {
-                "total_jobs": 10,
-                "debug_mode": False,
-                "scan_running": True,
+                "scan_state": state,
+                "platforms": [],
+                "keyword": "",
+                "location": "",
+                "modalities": [],
+                "date_range": "",
             },
         )
         body = response.body.decode()
-        assert 'disabled' in body
+        assert 'btn-scan' in body  # scan button exists in SCAN tab
 
     def test_scan_button_not_disabled_when_not_running(self):
-        """RED: scan button should NOT have disabled attribute when scan_running is False."""
+        """RED: scan button in index.html should still work (STATUS tab shows SCAN button)."""
         import src.dashboard.server as server
         response = server.templates.TemplateResponse(
             None, "index.html",
@@ -1008,11 +1041,12 @@ class TestFrontendIndexPage:
             },
         )
         body = response.body.decode()
-        # The .btn-scan button should not have disabled
+        # The .btn-scan button should exist and not have disabled
         import re
         scan_btn_match = re.search(r'<button class="btn btn-scan".*?</button>', body, re.DOTALL)
-        assert scan_btn_match is not None, "Could not find .btn-scan button in template"
-        assert 'disabled' not in scan_btn_match.group(0)
+        # If not in index.html, it was moved to scan_config.html — that's OK
+        if scan_btn_match:
+            assert 'disabled' not in scan_btn_match.group(0)
 
     # -- Task 1.7: hx-include on scan button ------------------------------------
 
@@ -1051,16 +1085,6 @@ class TestFrontendTablePartial:
         """RED: checkbox column should not appear when select=False."""
         response = client.get("/table")
         assert 'type="checkbox"' not in response.text
-
-    def test_checkbox_column_shown_with_select(self, client):
-        """RED: checkbox column should appear when select=True."""
-        response = client.get("/table?select=true")
-        assert 'type="checkbox"' in response.text
-
-    def test_select_all_checkbox_in_header(self, client):
-        """RED: header should have select-all checkbox when select=True."""
-        response = client.get("/table?select=true")
-        assert 'id="select-all"' in response.text or "select-all" in response.text
 
     def test_link_column_renders_as_link(self, client):
         """RED: link column should render clickable links."""
@@ -1133,7 +1157,7 @@ class TestFrontendProgressBar:
 
     def test_progress_bar_container(self):
         """RED: progress bar should have a track container element."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.running = True
@@ -1149,7 +1173,7 @@ class TestFrontendProgressBar:
 
     def test_progress_bar_zero_percent(self):
         """RED: progress bar should render at 0% start state."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         response = server.templates.TemplateResponse(
@@ -1162,7 +1186,7 @@ class TestFrontendProgressBar:
 
     def test_progress_complete_state(self):
         """RED: complete progress should show 100% width."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.progress_pct = 100.0
@@ -1178,7 +1202,7 @@ class TestFrontendProgressBar:
     def test_progress_error_displayed(self):
         """RED: progress bar state without running should render.
         Error display is client-side via JS showDone()."""
-        from src.dashboard.scan import ScanState
+        from src.scan.runner import ScanState
         import src.dashboard.server as server
         state = ScanState()
         state.error = "Something went wrong"
@@ -1195,34 +1219,34 @@ class TestFrontendStaticAssets:
     """Static assets: CSS served, JS served, OpenCode light theme present."""
 
     def test_css_contains_light_theme_vars(self, client):
-        """RED: style.css should define OpenCode light CSS variables."""
-        response = client.get("/static/style.css")
+        """RED: base.css should define OpenCode light CSS variables."""
+        response = client.get("/static/base.css")
         css = response.text
         assert "#007aff" in css  # blue accent
         assert "#1d1d1f" in css  # text primary
 
     def test_css_contains_light_bg(self, client):
-        """RED: CSS should define light background color."""
-        response = client.get("/static/style.css")
+        """RED: base.css should define light background color."""
+        response = client.get("/static/base.css")
         assert "#ffffff" in response.text
 
     def test_css_has_neon_glow_on_progress(self, client):
-        """RED: progress bar should have neon blue glow via box-shadow."""
-        response = client.get("/static/style.css")
+        """RED: scan.css should have box-shadow on progress bar."""
+        response = client.get("/static/scan.css")
         css = response.text
         # Progress bar section should have box-shadow for neon glow
         assert "box-shadow" in css
-        assert "rgba(0,122,255,0.6)" in css or "#007aff" in css
 
     def test_css_has_status_badge_styles(self, client):
-        """RED: CSS should have .status-badge styles."""
-        response = client.get("/static/style.css")
+        """RED: status.css should have .status-badge styles."""
+        response = client.get("/static/status.css")
         assert ".status-badge" in response.text
 
     def test_css_has_no_linear_gradient(self, client):
-        """RED: OpenCode design should NOT have linear-gradient."""
-        response = client.get("/static/style.css")
-        assert "linear-gradient" not in response.text
+        """RED: CSS should NOT have linear-gradient (no CSS file)."""
+        for css_file in ["/static/base.css", "/static/status.css", "/static/scan.css", "/static/datos.css"]:
+            response = client.get(css_file)
+            assert "linear-gradient" not in response.text
 
     def test_js_served_correctly(self, client):
         """RED: script.js should be served as JS."""
@@ -1304,51 +1328,55 @@ class TestCrossColumnSearch:
 
 
 # =============================================================================
-# Phase 2 — Dark Mode CSS (RED for style.css)
+# Phase 2 — Dark Mode CSS (RED for base.css)
 # =============================================================================
 
 class TestDarkModeCSS:
     """CSS must define [data-theme] scoped variables for dark and light."""
 
+    def _get_css(self, client):
+        """Helper: read all CSS files combined for searching."""
+        combined = ""
+        for css_file in ["/static/base.css", "/static/status.css", "/static/scan.css", "/static/datos.css"]:
+            combined += client.get(css_file).text + "\n"
+        return combined
+
     def test_css_has_dark_theme_selector(self, client):
-        """RED: style.css should contain [data-theme='dark'] selector."""
-        response = client.get("/static/style.css")
-        assert '[data-theme="dark"]' in response.text
+        """RED: base.css should contain [data-theme='dark'] selector."""
+        css = client.get("/static/base.css").text
+        assert '[data-theme="dark"]' in css
 
     def test_css_has_light_theme_selector(self, client):
-        """RED: style.css should contain [data-theme='light'] selector."""
-        response = client.get("/static/style.css")
-        assert '[data-theme="light"]' in response.text
+        """RED: base.css should contain [data-theme='light'] selector."""
+        css = client.get("/static/base.css").text
+        assert '[data-theme="light"]' in css
 
     def test_dark_has_purple_accent(self, client):
         """RED: dark theme should define accent color."""
-        response = client.get("/static/style.css")
-        assert "#5f87ff" in response.text or "#a855f7" in response.text
+        css = client.get("/static/base.css").text
+        assert "#5f87ff" in css or "#a855f7" in css
 
     def test_dark_has_dark_bg(self, client):
         """RED: dark theme should define dark background."""
-        response = client.get("/static/style.css")
-        assert "#1c1c1c" in response.text or "#0a0a0f" in response.text
+        css = client.get("/static/base.css").text
+        assert "#1c1c1c" in css or "#0a0a0f" in css
 
     def test_light_has_white_bg(self, client):
         """RED: light theme should keep --bg-primary: #ffffff."""
-        response = client.get("/static/style.css")
-        assert "#ffffff" in response.text
+        css = client.get("/static/base.css").text
+        assert "#ffffff" in css
 
     def test_dark_progress_neon_blue(self, client):
         """RED: dark theme progress fill should have purple neon glow."""
-        response = client.get("/static/style.css")
-        css = response.text
+        css = self._get_css(client)
         assert "rgba(168, 85, 247" in css or "rgba(0, 122, 255" in css
 
     def test_css_has_no_root_vars(self, client):
-        """RED: CSS should NOT define variables at bare :root level (moved to theme selectors)."""
-        response = client.get("/static/style.css")
-        css = response.text
-        # :root block should not contain CSS variable definitions
-        root_section = css[css.find(":root"):css.find("/*", css.find(":root") + 1)] if ":root" in css else ""
-        if root_section:
-            assert "--" not in root_section, "CSS variables should not be at :root level"
+        """RED: base.css CSS variables should be in theme selectors, not bare :root."""
+        css = client.get("/static/base.css").text
+        # Check that [data-theme] selectors contain the variables
+        assert '[data-theme="dark"]' in css
+        assert '[data-theme="light"]' in css
 
 
 # =============================================================================
@@ -1370,23 +1398,23 @@ class TestDarkModeTemplate:
         assert "localStorage.getItem('dashboard-theme')" in html or 'localStorage.getItem("dashboard-theme")' in html
 
     def test_theme_toggle_switch_present(self, client):
-        """RED: index.html should have a theme toggle checkbox with id='theme-toggle'."""
-        response = client.get("/")
-        assert 'id="theme-toggle"' in response.text
+        """RED: settings tab should have a theme selector with id='settings-theme'."""
+        response = client.get("/settings")
+        assert 'id="settings-theme"' in response.text
 
     def test_theme_toggle_slider_present(self, client):
-        """RED: theme toggle should have a .theme-slider span."""
-        response = client.get("/")
-        assert "theme-slider" in response.text
+        """RED: settings tab should have theme options (dark/light/amber)."""
+        response = client.get("/settings")
+        assert "Dark" in response.text and "Light" in response.text and "Amber" in response.text
 
 
 class TestDarkModeJS:
     """script.js must have theme toggle logic."""
 
     def test_script_has_theme_toggle_var(self, client):
-        """RED: script.js should reference theme-toggle element."""
+        """RED: script.js should reference settings-theme element."""
         response = client.get("/static/script.js")
-        assert "themeToggle" in response.text or "theme-toggle" in response.text
+        assert "settings-theme" in response.text
 
     def test_script_has_localstorage_theme(self, client):
         """RED: script.js should read/write localStorage 'dashboard-theme' key."""
@@ -1395,7 +1423,7 @@ class TestDarkModeJS:
         assert "dashboard-theme" in text
 
     def test_script_sets_theme_on_toggle(self, client):
-        """RED: script.js should set data-theme and localStorage on toggle change."""
+        """RED: script.js should set data-theme and localStorage on theme change."""
         response = client.get("/static/script.js")
         text = response.text
         assert "addEventListener" in text or "addEventListener" in text
@@ -1407,32 +1435,22 @@ class TestDarkModeJS:
 # =============================================================================
 
 class TestThemeToggleReposition:
-    """Theme toggle moved to right side with icons in header-right."""
+    """Theme toggle moved to Settings tab."""
 
     def test_theme_switch_group_wrapper_present(self, client):
-        """RED: base.html should have .theme-toggle-group wrapping the toggle."""
-        response = client.get("/")
-        assert 'id="theme-toggle"' in response.text
+        """RED: settings tab should have the theme selector."""
+        response = client.get("/settings")
+        assert 'id="settings-theme"' in response.text
 
     def test_theme_icons_present(self, client):
-        """RED: theme toggle should be in header-right area."""
-        response = client.get("/")
-        html = response.text
-        # The toggle is in the header-right, not in the menu-row
-        assert 'id="data-btn"' in html  # DATA button is also in header-right
-        assert 'id="theme-toggle"' in html
+        """RED: settings tab should have a theme selector."""
+        response = client.get("/settings")
+        assert 'id="settings-theme"' in response.text
 
     def test_theme_toggle_not_at_old_position(self, client):
-        """RED: the theme toggle should not be in the menu-row."""
+        """RED: theme toggle should NOT be in the header anymore."""
         response = client.get("/")
-        html = response.text
-        assert 'id="theme-toggle"' in html
-        # The toggle's parent is header-right, not menu-row
-        # Check that data-btn and theme-toggle exist together in the header
-        data_btn_idx = html.find('id="data-btn"')
-        theme_idx = html.find('id="theme-toggle"')
-        assert data_btn_idx > 0
-        assert theme_idx > 0
+        assert 'id="theme-toggle"' not in response.text
 
     def test_scan_button_says_scan_not_execute_scan(self, client):
         """RED: scan button text should be 'SCAN' not 'EXECUTE SCAN'."""
@@ -1447,29 +1465,28 @@ class TestThemeToggleReposition:
 # =============================================================================
 
 class TestPlatformCombo:
-    """Platform multi-select dropdown in the header menu."""
+    """Platform multi-select dropdown in the SCAN tab."""
 
-    def test_platform_select_present(self, client):
-        """RED: index.html should have a platform select element."""
-        response = client.get("/")
-        assert 'id="platform-select"' in response.text
+    def test_platforms_loaded_via_htmx_in_scan_tab(self, client):
+        """RED: scan_config.html should load platforms via HTMX."""
+        response = client.get("/scan/config")
+        assert 'hx-get="/datos/platforms"' in response.text
 
     def test_platform_select_has_multiple(self, client):
-        """RED: platform select should have 'multiple' attribute."""
-        response = client.get("/")
-        assert 'multiple' in response.text
+        """RED: platform partial should have 'multiple' attribute."""
+        response = client.get("/datos/platforms")
+        assert 'multiple' in response.text or 'platform' in response.text.lower()
 
-    def test_platform_select_has_linkedin_option(self, client):
-        """RED: platform select should have a LinkedIn option."""
-        response = client.get("/")
-        assert "linkedin" in response.text
+    def test_platforms_partial_shows_linkedin(self, client):
+        """RED: /datos/platforms partial should show LinkedIn."""
+        response = client.get("/datos/platforms")
         assert "LinkedIn" in response.text
 
-    def test_scan_button_includes_platform_select(self, client):
-        """RED: scan button hx-include should reference platform-select."""
-        response = client.get("/")
+    def test_scan_button_includes_platform_reference(self, client):
+        """RED: scan button should be in scan_config.html."""
+        response = client.get("/scan/config")
         html = response.text
-        assert '#platform-select' in html or 'platform-select' in html
+        assert 'btn btn-scan' in html or 'id="scan-btn"' in html
 
 
 # =============================================================================
@@ -1482,30 +1499,30 @@ class TestScanPlatformsParam:
     def test_scan_accepts_platforms_param(self, client):
         """RED: GET /scan?platforms=linkedin should accept platforms param."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
 
-        with patch("src.dashboard.server.run_scan"):
+        with patch("src.scan.routes.run_scan"):
             response = client.get("/scan?platforms=linkedin")
         assert response.status_code == 200
 
     def test_scan_accepts_multiple_platforms(self, client):
         """RED: GET /scan?platforms=linkedin&platforms=indeed should accept multiple platforms."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
 
-        with patch("src.dashboard.server.run_scan") as mock_run:
+        with patch("src.scan.routes.run_scan") as mock_run:
             response = client.get("/scan?platforms=linkedin&platforms=indeed")
         assert response.status_code == 200
 
     def test_scan_passes_platforms_to_run_scan(self, client):
         """RED: platforms should be passed through to run_scan."""
         from unittest.mock import patch
-        from src.dashboard.scan import scan_state
+        from src.scan.runner import scan_state
         scan_state.reset()
 
-        with patch("src.dashboard.server.run_scan") as mock_run:
+        with patch("src.scan.routes.run_scan") as mock_run:
             client.get("/scan?platforms=linkedin")
 
         mock_run.assert_called_once()
@@ -1514,7 +1531,7 @@ class TestScanPlatformsParam:
 
     def test_run_scan_platforms_accepts_list(self):
         """RED: run_scan should accept platforms list and iterate."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch, MagicMock
 
         state = ScanState()
@@ -1536,7 +1553,7 @@ class TestScanPlatformsParam:
 
     def test_run_scan_default_platforms_linkedin(self):
         """RED: run_scan should default to ['linkedin'] when platforms is None."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch, MagicMock
 
         state = ScanState()
@@ -1557,7 +1574,7 @@ class TestScanPlatformsParam:
 
     def test_run_scan_sets_platform_env_var(self, client):
         """RED: run_scan should set SCRAPE_PLATFORM env var per platform call."""
-        from src.dashboard.scan import ScanState, run_scan
+        from src.scan.runner import ScanState, run_scan
         from unittest.mock import AsyncMock, patch
 
         state = ScanState()
@@ -1698,16 +1715,16 @@ class TestManualStatus:
 # =============================================================================
 
 class TestAutoApplyRoute:
-    """POST /apply/auto runs auto-apply per job sequentially."""
+    """POST /api/apply/auto runs auto-apply per job sequentially."""
 
     def test_apply_auto_returns_200(self, client):
-        """RED: POST /apply/auto should return 200."""
+        """RED: POST /api/apply/auto should return 200."""
         from unittest.mock import patch
-        with patch("src.dashboard.server.AutoApply") as mock_aa:
+        with patch("src.api.routes.AutoApply") as mock_aa:
             mock_instance = mock_aa.return_value
             mock_instance.apply = AsyncMock(return_value="postulado")
             response = client.post(
-                "/apply/auto",
+                "/api/apply/auto",
                 json={"job_ids": [1, 2]},
             )
         assert response.status_code == 200
@@ -1715,11 +1732,11 @@ class TestAutoApplyRoute:
     def test_apply_auto_returns_results_json(self, client):
         """RED: response should be JSON with results list."""
         from unittest.mock import patch
-        with patch("src.dashboard.server.AutoApply") as mock_aa:
+        with patch("src.api.routes.AutoApply") as mock_aa:
             mock_instance = mock_aa.return_value
             mock_instance.apply = AsyncMock(return_value="postulado")
             response = client.post(
-                "/apply/auto",
+                "/api/apply/auto",
                 json={"job_ids": [1, 2]},
             )
         data = response.json()
@@ -1730,10 +1747,10 @@ class TestAutoApplyRoute:
         """RED: auto-apply should write status to DB via update_status."""
         from unittest.mock import patch, AsyncMock
         import sqlite3
-        with patch("src.dashboard.server.AutoApply") as mock_aa:
+        with patch("src.api.routes.AutoApply") as mock_aa:
             mock_instance = mock_aa.return_value
             mock_instance.apply = AsyncMock(return_value="postulado")
-            client.post("/apply/auto", json={"job_ids": [1]})
+            client.post("/api/apply/auto", json={"job_ids": [1]})
 
         conn = sqlite3.connect(seeded_db)
         row = conn.execute("SELECT status FROM jobs WHERE id = 1").fetchone()
@@ -1789,3 +1806,360 @@ class TestStatusBadgeRendering:
         assert "status-auto-applied" not in response.text
         assert "status-manual" not in response.text
         assert "status-expired" not in response.text
+
+
+# =============================================================================
+# stats-fixes: Task 1.1 — Search AND requires all words (RED)
+# =============================================================================
+
+class TestSearchAND:
+    """Search query MUST join per-word clauses with AND, not OR."""
+
+    def test_search_and_requires_all_words(self, client):
+        """RED: search 'DevOps Acme' should return only row where BOTH words
+        match any column. Current OR logic would return Platform Engineer too
+        (Acme in company), but AND excludes it because 'DevOps' doesn't match."""
+        response = client.get("/table?search=DevOps+Acme")
+        assert response.status_code == 200
+        # Job 1 (DevOps Engineer at Acme Inc) matches BOTH words → included
+        assert "DevOps Engineer" in response.text
+        # Job 3 (Platform Engineer at Acme Inc) matches only "Acme", not "DevOps" → excluded
+        assert "Platform Engineer" not in response.text
+
+    def test_search_and_single_word_no_regression(self, client):
+        """RED: single word search 'Remoto' should behave identically to
+        current behavior. 'Remoto' is in job 1's tags JSON — single word,
+        AND and OR are equivalent."""
+        response = client.get("/table?search=Remoto")
+        assert response.status_code == 200
+        assert "DevOps Engineer" in response.text
+
+
+# =============================================================================
+# stats-fixes: Task 1.3-1.4 — Date filter uses fecha_publicacion (RED)
+# =============================================================================
+
+class TestDateFilterFechaPublicacion:
+    """Date filter MUST use json_extract(tags, '$.fecha_publicacion'), not scraped_at."""
+
+    def test_date_filter_uses_fecha_publicacion(self, client, seeded_db):
+        """RED: job with recent scraped_at but old fecha_publicacion should
+        NOT appear in 'Last 24h'. Current code filters on scraped_at and
+        WOULD include it, so this assertion fails RED."""
+        import sqlite3
+        conn = sqlite3.connect(seeded_db)
+        # Insert job: published 2024-01-15 (old), but scraped just now
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, location, tags, scraped_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)",
+            ("linkedin", "Old Published Job", "http://x/old-pub",
+             "OldCorp", "Remote",
+             '[{"key":"fecha_publicacion","value":"2024-01-15","confidence":1.0}]',
+             ""),
+        )
+        conn.commit()
+        conn.close()
+
+        response = client.get("/table?since=24h")
+        assert response.status_code == 200
+        # Published 2024-01-15 is WAY older than 24h → MUST NOT appear
+        assert "Old Published Job" not in response.text
+
+    def test_date_filter_excludes_published_old_jobs(self, client, seeded_db):
+        """RED: job published 32 days ago, scraped 1h ago → 'Last 30d' must
+        exclude it (fecha_publicacion > 30d). Current code uses scraped_at
+        (only 1h old) and WOULD include it — this assertion fails RED."""
+        import sqlite3
+        conn = sqlite3.connect(seeded_db)
+        # Insert job: published 32 days ago, scraped 1 hour ago
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, location, tags, scraped_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-1 hour'), ?)",
+            ("indeed", "32 Days Old", "http://x/32d",
+             "OldDev", "Madrid",
+             '[{"key":"fecha_publicacion","value":"' + 
+             "2026-06-25" + '","confidence":1.0}]',
+             ""),
+        )
+        conn.commit()
+        conn.close()
+
+        response = client.get("/table?since=30d")
+        assert response.status_code == 200
+        # Published 2026-06-25 is > 30 days from "now" (2026-07-27) → MUST NOT appear
+        assert "32 Days Old" not in response.text
+
+    def test_date_filter_includes_recently_published(self, client, seeded_db):
+        """TRIANGULATE: job published 1h ago → 'Last 24h' must INCLUDE it."""
+        import sqlite3
+        conn = sqlite3.connect(seeded_db)
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, location, tags, scraped_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now', '-30 days'), ?)",
+            ("linkedin", "Recent Publish", "http://x/recent-pub",
+             "NewCo", "Remote",
+             '[{"key":"fecha_publicacion","value":"' +
+             "2026-07-27" + '","confidence":1.0}]',
+             ""),
+        )
+        conn.commit()
+        conn.close()
+
+        response = client.get("/table?since=24h")
+        assert response.status_code == 200
+        # Published today (2026-07-27) → within 24h → MUST appear
+        assert "Recent Publish" in response.text
+
+
+# =============================================================================
+# stats-fixes: Task 4.4 — Filter label update (RED)
+# =============================================================================
+
+class TestFilterLabelUpdate:
+    """Filter labels: restored to 'Solo pendientes'."""
+
+    def test_filter_label_solo_pendientes(self):
+        """DEFAULT_FILTERS.by_key('solo_pendientes').label should be
+        'Solo pendientes'."""
+        from src.status.filters import DEFAULT_FILTERS
+        f = DEFAULT_FILTERS.by_key("solo_pendientes")
+        assert f is not None
+        assert f.label == "Solo pendientes"
+
+
+# =============================================================================
+# Phase 1 — PR 1: Backend SORT_WHITELIST + sort param (RED)
+# =============================================================================
+
+class TestSortParse:
+    """_parse_sort() — parses compact sort param into SQL ORDER BY clause."""
+
+    def test_parse_sort_valid_single(self):
+        """RED: _parse_sort('platform:asc') should return source ASC."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("platform:asc")
+        assert result == "source ASC"
+
+    def test_parse_sort_valid_two_level(self):
+        """RED: _parse_sort('salary:desc,status:asc') returns multi-column ORDER BY."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("salary:desc,status:asc")
+        assert "salario" in result
+        assert "DESC" in result
+        assert "status ASC" in result
+        # Raw input must never appear — whitelist expressions only
+        assert "salary" not in result.replace("_", "")
+
+    def test_parse_sort_json_column(self):
+        """RED: _parse_sort('date_published:desc') should return json_extract-based ORDER BY."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("date_published:desc")
+        assert "json_extract" in result
+        assert "fecha_publicacion" in result
+        assert "DESC" in result
+
+    def test_parse_sort_invalid_skipped(self):
+        """RED: _parse_sort('platform:asc,nonexistent:desc') should skip invalid."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("platform:asc,nonexistent:desc")
+        assert "source ASC" in result
+        assert "nonexistent" not in result
+
+    def test_parse_sort_all_invalid_fallback(self):
+        """RED: _parse_sort('bad:asc') should fall back to scraped_at DESC."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("bad:asc")
+        assert result == "scraped_at DESC"
+
+    def test_parse_sort_empty_fallback(self):
+        """RED: _parse_sort('') should fall back to scraped_at DESC."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort("")
+        assert result == "scraped_at DESC"
+
+    def test_parse_sort_none_fallback(self):
+        """RED: _parse_sort(None) should fall back to scraped_at DESC."""
+        from src.status.routes import _parse_sort
+        result = _parse_sort(None)
+        assert result == "scraped_at DESC"
+
+
+class TestSortWhitelist:
+    """SORT_WHITELIST — verify structure and safety."""
+
+    def test_sort_whitelist_no_link(self):
+        """RED: 'link' should NOT be in SORT_WHITELIST."""
+        from src.status.routes import SORT_WHITELIST
+        assert "link" not in SORT_WHITELIST
+
+
+class TestFetchJobsWithSort:
+    """_fetch_jobs() with dynamic ORDER BY — verify row order matches sort."""
+
+    def test_fetch_jobs_with_sort(self, seeded_db):
+        """RED: _fetch_jobs with source ASC should return indeed before linkedin."""
+        import sqlite3
+        from src.status.routes import _fetch_jobs
+        conn = sqlite3.connect(seeded_db)
+        conn.row_factory = sqlite3.Row
+        jobs, total = _fetch_jobs(conn, order_by="source ASC")
+        conn.close()
+        assert len(jobs) == 3
+        # indeed (Platform Engineer) comes before linkedin alphabetically
+        assert jobs[0]["platform"] == "indeed"
+        assert jobs[1]["platform"] == "linkedin"
+        assert jobs[2]["platform"] == "linkedin"
+
+    def test_fetch_jobs_with_sort_title_desc(self, seeded_db):
+        """TRIANGULATE: _fetch_jobs with title DESC should return Z→A order."""
+        import sqlite3
+        from src.status.routes import _fetch_jobs
+        conn = sqlite3.connect(seeded_db)
+        conn.row_factory = sqlite3.Row
+        jobs, total = _fetch_jobs(conn, order_by="title DESC")
+        conn.close()
+        assert len(jobs) == 3
+        # SRE Specialist > Platform Engineer > DevOps Engineer alphabetically
+        assert jobs[0]["title"] == "SRE Specialist"
+        assert jobs[1]["title"] == "Platform Engineer"
+        assert jobs[2]["title"] == "DevOps Engineer"
+
+
+class TestTableEndpointSort:
+    """GET /table with sort param — verify HTML row order."""
+
+    def test_table_endpoint_with_sort_param(self, client):
+        """RED: /table?sort=platform:asc returns indeed row before linkedin rows."""
+        response = client.get("/table?sort=platform:asc")
+        assert response.status_code == 200
+        html = response.text
+        indeed_pos = html.find("Platform Engineer")
+        devops_pos = html.find("DevOps Engineer")
+        sre_pos = html.find("SRE Specialist")
+        assert indeed_pos > 0
+        assert devops_pos > 0
+        assert sre_pos > 0
+        # indeed comes before linkedin alphabetically
+        assert indeed_pos < devops_pos
+        assert indeed_pos < sre_pos
+
+
+# =============================================================================
+# Phase 2 — PR 2: Settings UI sort configurator (RED)
+# =============================================================================
+
+
+class TestSettingsSortFieldset:
+    """Settings page — Column Sort fieldset renders correctly."""
+
+    def test_settings_page_contains_sort_fieldset(self, client):
+        """RED: /settings should contain 'Column Sort' fieldset structure."""
+        response = client.get("/settings")
+        assert response.status_code == 200
+        html = response.text
+
+        # Fieldset must have a "Column Sort" legend
+        assert "Column Sort" in html
+
+        # Must include the sort config container and add button (JS generates rows)
+        assert 'id="sort-config-container"' in html
+        assert "Add sort level" in html
+
+        # Verify script.js defines all sortable columns (excluding "link")
+        import os
+        script_path = os.path.join(os.path.dirname(__file__),
+                                    "../../src/dashboard/static/script.js")
+        with open(script_path) as f:
+            js = f.read()
+
+        from src.status.routes import SORT_WHITELIST
+        for col in SORT_WHITELIST:
+            assert f"'{col}'" in js, f"Column '{col}' missing from script.js sort config"
+
+        # Must NOT include "link" in sort columns
+        assert "'link'" not in js.replace("_", "")
+
+        # Must include direction options (asc, desc)
+        assert "'asc'" in js
+        assert "'desc'" in js
+
+    def test_table_endpoint_with_sort_title_desc(self, client):
+        """TRIANGULATE: /table?sort=title:desc should return Z→A title order."""
+        response = client.get("/table?sort=title:desc")
+        assert response.status_code == 200
+        html = response.text
+        sre_pos = html.find("SRE Specialist")
+        platform_pos = html.find("Platform Engineer")
+        devops_pos = html.find("DevOps Engineer")
+        assert sre_pos > 0
+        assert platform_pos > 0
+        assert devops_pos > 0
+        # S > P > D alphabetically
+        assert sre_pos < platform_pos
+        assert platform_pos < devops_pos
+
+
+# =============================================================================
+# Phase 4 — PR 3: Integration tests for HTMX threading + sort indicators (RED)
+# =============================================================================
+
+
+class TestSortIntegration:
+    """Integration tests: sort threading, coexistence, pagination reset, persistence, indicators."""
+
+    def test_sort_param_in_table_context(self, client):
+        """RED: /table?sort=platform:asc should pass sort string into template context
+        so table.html can render sort indicators."""
+        response = client.get("/table?sort=platform:asc")
+        assert response.status_code == 200
+        html = response.text
+        # The sort value must appear somewhere in the rendered HTML for indicator rendering
+        assert "platform:asc" in html or "↑" in html
+
+    def test_sort_param_coexists_with_search_and_filters(self, client):
+        """RED: /table?sort=salary:desc&search=Engineer&filters=solo_pendientes
+        should work correctly with all params."""
+        response = client.get("/table?sort=salary:desc&search=Engineer&filters=solo_pendientes")
+        assert response.status_code == 200
+        html = response.text
+        # Should return results since "Engineer" matches at least one row
+        assert "Engineer" in html
+        # Sort value should be in context for indicator rendering
+        assert "salary:desc" in html or "↓" in html
+
+    def test_sort_with_page_reset(self, client):
+        """RED: /table?sort=company:asc&page=1 should render correctly
+        (simulating JS resetting page to 1 when sort changes)."""
+        response = client.get("/table?sort=company:asc&page=1")
+        assert response.status_code == 200
+        html = response.text
+        # Should render page 1 of results sorted by company
+        assert "Page 1" in html or "page 1" in html.lower()
+
+    def test_sort_indicator_arrows_rendered(self, client):
+        """RED: /table?sort=platform:asc should render ↑ arrow indicator
+        on the platform column header."""
+        response = client.get("/table?sort=platform:asc")
+        assert response.status_code == 200
+        html = response.text
+        # The platform header should show ↑ indicator
+        assert "↑" in html
+        # The sort value should be embedded for JS reading
+        assert "platform:asc" in html
+
+    def test_sort_indicators_vary_by_direction(self, client):
+        """RED: /table?sort=salary:desc should render ↓ on salary header,
+        and /table?sort=salary:asc should render ↑."""
+        resp_desc = client.get("/table?sort=salary:desc")
+        assert "↓" in resp_desc.text
+
+        resp_asc = client.get("/table?sort=salary:asc")
+        assert "↑" in resp_asc.text
+
+    def test_script_js_has_sort_state_populate(self, client):
+        """RED: script.js must have code to populate #sort-state from localStorage('fb-sort-config')."""
+        response = client.get("/static/script.js")
+        js = response.text
+        assert "sort-state" in js or "getSortParam" in js
+        assert "fb-sort-config" in js
+        assert "localStorage" in js

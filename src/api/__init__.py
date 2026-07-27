@@ -1,0 +1,1 @@
+"""API module for Hermes Agent integration — /apply/auto and /api/status."""

@@ -6,7 +6,7 @@ Salary is displayed as EUR gross annual by default (configurable).
 
 from __future__ import annotations
 
-from src.models.job import Job
+from src.core.models.job import Job
 
 # Default salary context (adjustable per project/region)
 SALARY_DEFAULT_CURRENCY = "EUR"
