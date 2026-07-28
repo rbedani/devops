@@ -88,7 +88,7 @@ class Job:
         """Reconstruct a Job from a SQLite row (with tags JSON)."""
         import json
 
-        tags_raw = row.get("tags", "[]")
+        tags_raw = row["tags"] if "tags" in row else "[]"
         tags = [JobTag(**t) for t in json.loads(tags_raw)]
 
         return cls(
@@ -101,7 +101,7 @@ class Job:
             description=row["description"] or "",
             tags=tags,
             scraped_at=datetime.fromisoformat(row["scraped_at"]),
-            status=row.get("status", ""),
+            status=row["status"] if "status" in row else "",
         )
 
     def __repr__(self) -> str:
