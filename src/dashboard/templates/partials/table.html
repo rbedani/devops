@@ -1,6 +1,7 @@
 <div class="table-responsive"><table class="job-table">
     <thead>
         <tr>
+            <th class="col-id">id</th>
             <th class="col-date th-sortable" data-col="date_published">date_published{% if sort and 'date_published:asc' in sort %} ↑{% elif sort and 'date_published:desc' in sort %} ↓{% endif %}</th>
             <th class="col-platform th-sortable" data-col="platform">platform{% if sort and 'platform:asc' in sort %} ↑{% elif sort and 'platform:desc' in sort %} ↓{% endif %}</th>
             <th class="col-title th-sortable" data-col="title">title{% if sort and 'title:asc' in sort %} ↑{% elif sort and 'title:desc' in sort %} ↓{% endif %}</th>
@@ -15,6 +16,7 @@
     <tbody>
         {% for job in jobs %}
         <tr class="job-row">
+            <td class="cell-id">{{ job.id }}</td>
             <td class="cell-date">{{ job.date_published }}</td>
             <td class="cell-platform">{{ job.platform }}</td>
             <td class="cell-title">{{ job.title }}</td>
@@ -39,7 +41,7 @@
         {% endfor %}
         {% if not jobs %}
         <tr>
-            <td colspan="9" class="cell-empty">No jobs found.</td>
+            <td colspan="10" class="cell-empty">No jobs found.</td>
         </tr>
         {% endif %}
     </tbody>

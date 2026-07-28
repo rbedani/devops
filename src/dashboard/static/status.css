@@ -95,6 +95,7 @@
 /* -- Tabla columnas (anchos fijos para que no se muevan al togglear SELECT) -- */
 
 .col-date      { min-width: 90px; }
+.col-id        { min-width: 45px; }
 .col-platform  { min-width: 80px; }
 .col-title     { min-width: 180px; }
 .col-company   { min-width: 120px; }
@@ -141,6 +142,7 @@
 /* -- Data cells (monospace) ---------------------------------------------- */
 
 .cell-date,
+.cell-id,
 .cell-platform,
 .cell-title,
 .cell-company,
@@ -159,6 +161,13 @@
 .cell-date {
     color: var(--text-muted);
     font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.cell-id {
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    font-family: var(--font-mono);
     white-space: nowrap;
 }
 

@@ -173,11 +173,17 @@ def _fetch_jobs(
 
     if search:
         words = search.split()
-        columns = ["title", "company", "location", "description", "tags"]
+        columns = ["title", "company", "location", "description", "tags", "id"]
         word_clauses = []
         params: list[str] = []
         for word in words:
-            col_clause = " OR ".join(f"{col} LIKE ?" for col in columns)
+            col_parts: list[str] = []
+            for col in columns:
+                if col == "id":
+                    col_parts.append("CAST(id AS TEXT) LIKE ?")
+                else:
+                    col_parts.append(f"{col} LIKE ?")
+            col_clause = " OR ".join(col_parts)
             word_clauses.append(f"({col_clause})")
             params.extend([f"%{word}%"] * len(columns))
 
