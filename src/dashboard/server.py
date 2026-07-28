@@ -19,7 +19,8 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from src.core.config.settings import DB_PATH as _CORE_DB_PATH, PROJECT_ROOT
+from src.core.config.settings import DB_PATH as _CORE_DB_PATH
+from src.core.config.settings import PROJECT_ROOT
 from src.core.db.database import run_migrations as run_core_migrations
 from src.datos.store import run_datos_migration
 from src.scan.store import run_scan_migration
@@ -103,10 +104,10 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # Routers (STATUS, SCAN, DATA, API)
-    from src.status.routes import status_router
-    from src.scan.routes import scan_router
-    from src.datos.routes import datos_router
     from src.api.routes import router as api_router
+    from src.datos.routes import datos_router
+    from src.scan.routes import scan_router
+    from src.status.routes import status_router
 
     app.include_router(status_router)
     app.include_router(scan_router)

@@ -18,7 +18,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from starlette.datastructures import FormData
 
-from src.core.config.settings import DB_PATH as _CORE_DB_PATH, CV_DIR as _CORE_CV_DIR
+from src.core.config.settings import CV_DIR as _CORE_CV_DIR
+from src.core.config.settings import DB_PATH as _CORE_DB_PATH
 from src.datos.store import (
     add_field,
     delete_cv,
@@ -38,6 +39,7 @@ CV_DIR = _CORE_CV_DIR
 # -- Templates ---------------------------------------------------------------
 
 from fastapi.templating import Jinja2Templates
+
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 # -- Router ------------------------------------------------------------------
@@ -102,7 +104,7 @@ def _validate_field_value(field_type: str, value: str) -> str | None:
         try:
             float(value)
         except ValueError:
-            return f"Value must be a number for numeric field"
+            return "Value must be a number for numeric field"
     elif field_type == "email":
         if "@" not in value:
             return "Value must contain @ for email field"

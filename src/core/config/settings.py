@@ -9,9 +9,8 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
 from dataclasses import dataclass, field
-
+from pathlib import Path
 
 # -- Project root detection ---------------------------------------------------
 # This file lives at PROJECT_ROOT/src/core/config/settings.py

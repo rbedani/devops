@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -32,7 +32,7 @@ class Job:
     location: str = ""
     description: str = ""
     tags: list[JobTag] = field(default_factory=list)
-    scraped_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    scraped_at: datetime = field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     id: int | None = None
     status: str = ""
 

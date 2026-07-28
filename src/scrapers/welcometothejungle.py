@@ -18,7 +18,7 @@ Architecture:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -225,7 +225,7 @@ class WelcomeToTheJungleScraper(BaseScraper):
         )
 
         jobs: list[Job] = []
-        current_date = datetime.now(timezone.utc)
+        current_date = datetime.now(UTC)
 
         for hit in hits:
             try:
@@ -334,7 +334,7 @@ class WelcomeToTheJungleScraper(BaseScraper):
                 try:
                     pub = datetime.fromisoformat(published_at)
                     if pub.tzinfo is None:
-                        pub = pub.replace(tzinfo=timezone.utc)
+                        pub = pub.replace(tzinfo=UTC)
                     delta = (current_date - pub).days
                     if delta > days_ago:
                         return None

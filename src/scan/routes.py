@@ -13,12 +13,17 @@ import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
-from fastapi import APIRouter, Form, HTTPException, Query, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
 from src.scan.runner import run_scan, scan_state
-from src.scan.store import get_connection, get_enabled_platform_names, get_platforms, run_scan_migration, toggle_platform
+from src.scan.store import (
+    get_connection,
+    get_enabled_platform_names,
+    get_platforms,
+    toggle_platform,
+)
 
 # -- Paths -------------------------------------------------------------------
 
@@ -28,6 +33,7 @@ SCAN_PARAMS_PATH = Path(__file__).parent.parent.parent / "config" / "scan_params
 # -- Templates ---------------------------------------------------------------
 
 from fastapi.templating import Jinja2Templates
+
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 # -- Router ------------------------------------------------------------------
@@ -87,8 +93,8 @@ async def scan_config(request: Request) -> HTMLResponse:
     if not keyword:
         # Fallback: read from targets.json
         try:
-            from src.core.config.settings import TARGETS_PATH
             from src.core.config.search import load_targets
+            from src.core.config.settings import TARGETS_PATH
             targets = load_targets(TARGETS_PATH)
             if targets:
                 kw = targets[0].filters.keywords

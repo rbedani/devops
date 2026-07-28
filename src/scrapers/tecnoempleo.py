@@ -12,7 +12,7 @@ import logging
 import random
 import re
 from typing import Any
-from urllib.parse import urlencode, quote
+from urllib.parse import quote
 
 from playwright.async_api import TimeoutError as PwTimeout
 

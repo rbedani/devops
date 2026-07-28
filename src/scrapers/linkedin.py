@@ -7,7 +7,6 @@ and auto-detect metadata tags.  No API key required — works via browser.
 from __future__ import annotations
 
 import logging
-import re
 from urllib.parse import urlencode
 
 from playwright.async_api import TimeoutError as PwTimeout

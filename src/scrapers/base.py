@@ -14,10 +14,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 
-from src.core.models.job import Job
 from src.core.db.database import JobDatabase
+from src.core.models.job import Job
 from src.tags.detector import TagRegistry, build_default_registry
 
 logger = logging.getLogger(__name__)

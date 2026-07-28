@@ -9,11 +9,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
-from src.core.models.job import Job
 from src.core.config.settings import DB_PATH
+from src.core.models.job import Job
 
 
 def _content_hash(title: str, company: str | None, description: str | None) -> str:

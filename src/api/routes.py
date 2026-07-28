@@ -12,10 +12,11 @@ import sqlite3
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from src.apply.auto_apply import AutoApply
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
 from src.core.db.database import update_job_status as _update_job_status
-from src.datos.store import get_cv, get_fields, get_connection as get_datos_connection
-from src.apply.auto_apply import AutoApply
+from src.datos.store import get_connection as get_datos_connection
+from src.datos.store import get_cv, get_fields
 
 router = APIRouter(prefix="/api", tags=["api"])
 

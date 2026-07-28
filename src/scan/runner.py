@@ -13,7 +13,6 @@ import re
 import sys
 from dataclasses import dataclass, field
 
-
 # Map DB display names → internal platform slugs used by run_search.py
 # The dashboard stores user-friendly names in scan_platforms, while
 # run_search.py's SCRAPE_PLATFORM filter matches against SearchTarget.platform
@@ -152,7 +151,7 @@ async def run_scan(
                     proc.terminate()
                     try:
                         await asyncio.wait_for(proc.wait(), timeout=0.5)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         proc.kill()
                         await proc.wait()
                     break

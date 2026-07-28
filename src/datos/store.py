@@ -9,6 +9,7 @@ The scan_platforms table has been moved to src.scan.store as part of the
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC
 from typing import Any
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
@@ -133,8 +134,8 @@ def get_cv(conn: sqlite3.Connection) -> CVFile | None:
 
 def save_cv(conn: sqlite3.Connection, filename: str, original_name: str, file_path: str) -> int:
     """Insert a CV record. Returns the row id."""
-    from datetime import datetime, timezone
-    uploaded_at = datetime.now(timezone.utc).isoformat()
+    from datetime import datetime
+    uploaded_at = datetime.now(UTC).isoformat()
     cursor = conn.execute(
         "INSERT INTO cv_files (filename, original_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)",
         (filename, original_name, file_path, uploaded_at),
