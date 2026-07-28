@@ -47,6 +47,31 @@ def _run_status_migration(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _run_indeed_tag_migration(conn: sqlite3.Connection) -> None:
+    """Rename 'salary' → 'salario' in Indeed job tags JSON.
+
+    Indeed scraper previously used 'salary' as the tag key; the rest of the
+    codebase uses 'salario'. This migration is idempotent.
+    """
+    rows = conn.execute(
+        "SELECT id, tags FROM jobs WHERE source = 'indeed'"
+    ).fetchall()
+    for row in rows:
+        row_id, tags_raw = row[0], row[1] or "[]"
+        tags = json.loads(tags_raw)
+        changed = False
+        for tag in tags:
+            if tag.get("key") == "salary":
+                tag["key"] = "salario"
+                changed = True
+        if changed:
+            conn.execute(
+                "UPDATE jobs SET tags = ? WHERE id = ?",
+                (json.dumps(tags), row_id),
+            )
+    conn.commit()
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,6 +101,25 @@ def run_migrations(db_path: Path | str | None = None) -> None:
     try:
         conn.executescript(_SCHEMA)
         _run_status_migration(conn)
+        _run_content_hash_migration(conn)
+        _run_indeed_tag_migration(conn)
+    finally:
+        conn.close()
+
+
+def update_job_status(job_id: int, status: str, db_path: Path | str | None = None) -> bool:
+    """Set the status column for a job row. Returns True if row existed.
+
+    Standalone utility — avoids duplicating this logic across route modules.
+    """
+    path = Path(db_path) if db_path else DB_PATH
+    conn = sqlite3.connect(str(path))
+    try:
+        cursor = conn.execute(
+            "UPDATE jobs SET status = ? WHERE id = ?", (status, job_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()
 
@@ -116,9 +160,6 @@ class JobDatabase:
         tags_json = json.dumps(
             [{"key": t.key, "value": t.value, "confidence": t.confidence} for t in job.tags]
         )
-
-        # Ensure content_hash column and index exist
-        _run_content_hash_migration(conn)
 
         h = _content_hash(job.title, job.company, job.description)
 

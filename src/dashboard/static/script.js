@@ -298,6 +298,9 @@
             btn.disabled = true;
             btn.classList.add('btn-scan-disabled');
         }
+        // Enable STOP button while scan is running
+        var stopBtn = document.getElementById('stop-btn');
+        if (stopBtn) stopBtn.disabled = false;
     }
 
     function enableScanButton() {
@@ -306,9 +309,12 @@
             btn.disabled = false;
             btn.classList.remove('btn-scan-disabled');
         }
-        // Hide STOP button in header when scan stops
+        // Disable STOP button when scan stops
         var stopBtn = document.getElementById('stop-btn');
-        if (stopBtn) stopBtn.style.display = 'none';
+        if (stopBtn) stopBtn.disabled = true;
+        // Remove scan-running class to re-enable settings
+        var scanTab = document.getElementById('scan-tab');
+        if (scanTab) scanTab.classList.remove('scan-running');
     }
 
     function updateProgress(data) {
@@ -357,11 +363,9 @@
         // Disable scan button while running
         disableScanButton();
 
-        // Show STOP button in SCAN tab (always visible when scan runs)
-        var stopBtn = document.getElementById('stop-btn');
-        if (stopBtn) {
-            stopBtn.style.display = 'inline-block';
-        }
+        // Mark scan-tab as running (read-only settings)
+        var scanTab = document.getElementById('scan-tab');
+        if (scanTab) scanTab.classList.add('scan-running');
 
         // Expand the dino banner and init dino renderer.
         // Use htmx:afterSettle (not requestAnimationFrame alone) so that HTMX
@@ -465,9 +469,7 @@
             }
             dinoRenderer = null;
 
-            // Hide STOP button in SCAN tab
-            var stopBtn = document.getElementById('stop-btn');
-            if (stopBtn) stopBtn.style.display = 'none';
+            // STOP button state handled by enableScanButton above
         }
     });
 
@@ -484,10 +486,6 @@
                 progressSection.innerHTML = '';
             }
             dinoRenderer = null;
-
-            // Hide STOP button in SCAN tab
-            var stopBtn = document.getElementById('stop-btn');
-            if (stopBtn) stopBtn.style.display = 'none';
         }
     });
 
@@ -559,7 +557,8 @@
 
         var savedCompact = localStorage.getItem('dashboard-compact');
         if (savedCompact === 'on') document.body.classList.add('compact-mode');
-    })();
+
+})();
 
     // -- DATA Button Toggle ----------------------------------------------
 
@@ -704,6 +703,25 @@ if (dataActive) {
     });
 
 })();
+
+// -- Settings collapse/expand toggle ----------------------------------
+
+window.toggleScanSettings = function() {
+    var panel = document.getElementById('scan-settings');
+    var btn = document.getElementById('settings-toggle');
+    if (!panel || !btn) return;
+    
+    var isVisible = panel.style.display !== 'none';
+    if (isVisible) {
+        panel.style.display = 'none';
+        btn.innerHTML = '⚙ SETTINGS [+]';
+        btn.classList.remove('expanded');
+    } else {
+        panel.style.display = 'block';
+        btn.innerHTML = '⚙ SETTINGS [−]';
+        btn.classList.add('expanded');
+    }
+};
 
 // -- Filter Dropdown (event delegation — survives HTMX swaps) ---------------
 

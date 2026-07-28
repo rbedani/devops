@@ -62,7 +62,11 @@ class SearchFilters:
         return params
 
     def to_infojobs_params(self) -> dict[str, str]:
-        """Convert filters to InfoJobs search URL parameters."""
+        """Convert filters to InfoJobs search URL parameters.
+
+        InfoJobs does not support modality or date-range filters via URL
+        parameters. Modality filtering is handled post-scrape by matches_job().
+        """
         params: dict[str, str] = {}
 
         if self.keywords:
@@ -71,15 +75,6 @@ class SearchFilters:
         # InfoJobs uses city facet for location
         if self.countries:
             params["city"] = ", ".join(self.countries)
-
-# InfoJobs doesn't have a direct modality filter like LinkedIn.
-        # Modality keywords are added to the search query.
-        if self.modalities:
-            modality_keywords = " ".join(self.modalities)
-            if params.get("keyword"):
-                params["keyword"] += " " + modality_keywords
-            else:
-                params["keyword"] = modality_keywords
 
         return params
 
@@ -119,7 +114,8 @@ class SearchFilters:
     def matches_job(self, job: Any) -> bool:
         """Check if a scraped job matches this filter set.
 
-        Used for post-scrape filtering (e.g. modalidad in title/desc).
+        Uses modality synonym groups so that target "remoto" also matches
+        job modalities like "Teletrabajo", "Solo teletrabajo", or "Work from home".
         """
         if not self.modalities:
             return True
@@ -127,12 +123,28 @@ class SearchFilters:
         job_modality = (job.get_tag("modalidad") or "").lower()
         if job_modality:
             for m in self.modalities:
-                if m.lower() in job_modality:
-                    return True
+                synonyms = _MODALITY_SYNONYMS.get(m.lower(), [m.lower()])
+                for syn in synonyms:
+                    if syn in job_modality:
+                        return True
             return False
 
         # If no modality tag, don't filter out
         return True
+
+
+# Modality synonym groups (mirrors _detect_modality in src/tags/detector.py).
+# Each group maps canonical filter terms to their synonym sets.
+_MODALITY_SYNONYMS: dict[str, list[str]] = {
+    "remoto": ["remoto", "remote", "teletrabajo", "work from home", "wfh", "from home"],
+    "remote": ["remoto", "remote", "teletrabajo", "work from home", "wfh", "from home"],
+    "hibrido": ["híbrido", "hibrido", "hybrid", "semi-presencial", "híbrida"],
+    "híbrido": ["híbrido", "hibrido", "hybrid", "semi-presencial", "híbrida"],
+    "hybrid": ["híbrido", "hibrido", "hybrid", "semi-presencial", "híbrida"],
+    "presencial": ["presencial", "on-site", "onsite", "in office", "en oficina"],
+    "onsite": ["presencial", "on-site", "onsite", "in office", "en oficina"],
+    "on-site": ["presencial", "on-site", "onsite", "in office", "en oficina"],
+}
 
 
 @dataclass

@@ -1,114 +1,109 @@
 <div id="scan-tab" class="scan-tab">
-    <h2>&#9881; SCAN Configuration</h2>
-
-    <!-- Search Parameters -->
-    <fieldset class="scan-section">
-        <legend>Search Parameters</legend>
-
-        <div class="form-row">
-            <label for="scan-keywords">Keywords</label>
-            <input type="text" id="scan-keywords" name="q"
-                   placeholder="e.g. devops, sre, platform engineer (comma-separated)"
-                   value="{{ keyword or '' }}">
-        </div>
-
-        <div class="form-row">
-            <label for="scan-location">Country / Location</label>
-            <input type="text" id="scan-location" name="location"
-                   placeholder="e.g. Spain, Remote, Argentina"
-                   value="{{ location or '' }}">
-        </div>
-
-        <div class="form-row scan-modalities">
-            <label>Modality</label>
-            <div class="checkbox-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="modality" value="remote"
-                           {% if 'remote' in modalities %}checked{% endif %}>
-                    Remote
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" name="modality" value="hybrid"
-                           {% if 'hybrid' in modalities %}checked{% endif %}>
-                    Hybrid
-                </label>
-                <label class="checkbox-label">
-                    <input type="checkbox" name="modality" value="onsite"
-                           {% if 'onsite' in modalities %}checked{% endif %}>
-                    On-site
-                </label>
-            </div>
-        </div>
-
-        <div class="form-row">
-            <label for="scan-date-range">Date Range</label>
-            <select id="scan-date-range" name="date_range">
-                <option value="">Any time</option>
-                <option value="last_24h" {% if date_range == 'last_24h' %}selected{% endif %}>Last 24 hours</option>
-                <option value="last_week" {% if date_range == 'last_week' %}selected{% endif %}>Last week</option>
-                <option value="last_month" {% if date_range == 'last_month' %}selected{% endif %}>Last month</option>
-            </select>
-        </div>
-
-        <div class="form-row save-row">
-            <button class="btn btn-save"
-                    hx-post="/scan/config/save"
-                    hx-include="#scan-keywords, #scan-location, [name='modality']:checked, #scan-date-range"
-                    hx-target="#save-toast-container"
-                    hx-swap="innerHTML">
-                &#128190; SAVE
-            </button>
-            <span id="save-toast-container" class="save-toast-container"></span>
-        </div>
-    </fieldset>
-
-    <!-- Platforms -->
-    <fieldset class="scan-section">
-        <legend>Platforms</legend>
-        <div class="platforms-container" hx-get="/datos/platforms" hx-trigger="load" hx-swap="innerHTML">
-            Loading platforms...
-        </div>
-    </fieldset>
-
-    <!-- Debug Options -->
-    <fieldset class="scan-section">
-        <legend>Options</legend>
-        <div class="form-row">
-            <label class="checkbox-label">
-                <input type="checkbox" id="scan-debug" name="debug_mode" value="on">
-                Debug mode (limit to 3 results per scraper)
-            </label>
-        </div>
-    </fieldset>
-
-    <!-- Scan Controls -->
-    <div class="scan-controls">
+    <!-- TOP BAR -->
+    <div class="scan-topbar" id="scan-topbar">
         <button class="btn btn-scan" id="scan-btn"
                 hx-get="/scan"
-                hx-include="#scan-keywords, #scan-location, #scan-debug, [name='modality']:checked, #scan-date-range, [name='platforms']:checked"
+                hx-include="#scan-keywords, #scan-location, #scan-debug, [name='modality']:checked, #scan-date-range"
                 hx-target="#scan-progress-section"
                 hx-swap="innerHTML">
-            &#9654; RUN SCAN
+            ▶ RUN SCAN
         </button>
         <button class="btn btn-stop" id="stop-btn"
                 hx-get="/scan/stop"
                 hx-target="#scan-progress-section"
                 hx-swap="innerHTML"
-                style="display:none">
-            &#9209; STOP
+                disabled>
+            ⏏ STOP
         </button>
+        <button class="btn btn-settings-toggle" id="settings-toggle" type="button"
+                onclick="toggleScanSettings()">
+            ⚙ SETTINGS [+]
+        </button>
+        <label class="debug-toggle">
+            <input type="checkbox" id="scan-debug" name="debug_mode" value="on">
+            DEBUG
+        </label>
     </div>
 
-    <!-- Progress + Dino -->
+    <!-- SETTINGS PANEL (collapsible, push behavior) -->
+    <div class="scan-settings" id="scan-settings" style="display:none">
+        <div class="settings-columns">
+            <!-- Left: Platforms -->
+            <div class="settings-column">
+                <h3 class="settings-column-title">PLATFORMS</h3>
+                <div class="platforms-container" 
+                     hx-get="/datos/platforms" 
+                     hx-trigger="load" 
+                     hx-swap="innerHTML">
+                    Loading platforms...
+                </div>
+            </div>
+            <!-- Right: Search Parameters -->
+            <div class="settings-column">
+                <h3 class="settings-column-title">SEARCH PARAMETERS</h3>
+                <div class="form-row">
+                    <label for="scan-keywords">Keywords</label>
+                    <input type="text" id="scan-keywords" name="q"
+                           placeholder="e.g. devops, sre, platform engineer"
+                           value="{{ keyword or '' }}">
+                </div>
+                <div class="form-row">
+                    <label for="scan-location">Country / Location</label>
+                    <input type="text" id="scan-location" name="location"
+                           placeholder="e.g. Spain, Remote, Argentina"
+                           value="{{ location or '' }}">
+                </div>
+                <div class="form-row scan-modalities">
+                    <label>Modality</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="modality" value="remote"
+                                   {% if 'remote' in modalities %}checked{% endif %}>
+                            Remote
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="modality" value="hybrid"
+                                   {% if 'hybrid' in modalities %}checked{% endif %}>
+                            Hybrid
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="modality" value="onsite"
+                                   {% if 'onsite' in modalities %}checked{% endif %}>
+                            On-site
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="scan-date-range">Date Range</label>
+                    <select id="scan-date-range" name="date_range">
+                        <option value="">Any time</option>
+                        <option value="last_24h" {% if date_range == 'last_24h' %}selected{% endif %}>Last 24 hours</option>
+                        <option value="last_week" {% if date_range == 'last_week' %}selected{% endif %}>Last week</option>
+                        <option value="last_month" {% if date_range == 'last_month' %}selected{% endif %}>Last month</option>
+                    </select>
+                </div>
+                <div class="form-row save-row">
+                    <button class="btn btn-save"
+                            hx-post="/scan/config/save"
+                            hx-include="#scan-keywords, #scan-location, [name='modality']:checked, #scan-date-range"
+                            hx-target="#save-toast-container"
+                            hx-swap="innerHTML">
+                        💾 SAVE
+                    </button>
+                    <span id="save-toast-container" class="save-toast-container"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROGRESS + DINO -->
     <div id="scan-progress-section"
          hx-get="/scan/status-check"
          hx-trigger="load"
          hx-swap="innerHTML">
-        <!-- Progress bar + dino animation injected here by HTMX /scan response -->
-        <!-- progress.html partial goes here -->
     </div>
 
-    <!-- Scan Log -->
+    <!-- SCAN LOG -->
     <div class="scan-log">
         <h3>Scan Log</h3>
         <pre class="scan-log-output" id="scan-log">{% for line in scan_state.log_lines %}{{ line }}

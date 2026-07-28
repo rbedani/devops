@@ -19,10 +19,12 @@ class TestApplyPackage:
         """RED: src/apply should import without errors."""
         import src.apply  # noqa: F811
 
-    def test_exports_classify_outcome(self):
-        """RED: src/apply should export classify_outcome."""
+    def test_classify_outcome_moved_to_classifier(self):
+        """classify_outcome is no longer exported from src.apply (use src.apply.classifier directly)."""
         import src.apply
-        assert hasattr(src.apply, "classify_outcome")
+        assert not hasattr(src.apply, "classify_outcome"), (
+            "classify_outcome should have been removed from src.apply.__all__"
+        )
 
     def test_exports_auto_apply(self):
         """RED: src/apply should export AutoApply class."""

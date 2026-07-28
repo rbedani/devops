@@ -31,7 +31,6 @@
                     {{ job.status if job.status else "\u2014" }}
                 </span>
                 <div class="status-menu" style="display:none;">
-                    <button class="status-option" data-status="pendiente" onclick="setStatus({{ job.id }}, 'pendiente', this)">⏳ Pendiente</button>
                     <button class="status-option" data-status="no-aplica" onclick="setStatus({{ job.id }}, 'no-aplica', this)">⏭ No aplica</button>
                     <button class="status-option" data-status="postulado" onclick="setStatus({{ job.id }}, 'postulado', this)">✅ Postulado</button>
                 </div>

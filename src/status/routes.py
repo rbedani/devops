@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
+from src.core.db.database import update_job_status as _update_job_status
 from src.scan.runner import scan_state
 from src.status.filters import DEFAULT_FILTERS
 
@@ -243,15 +244,6 @@ def _fetch_jobs(
     return jobs, total
 
 
-def _update_job_status(job_id: int, status: str) -> bool:
-    """Set the status column for a job row. Returns True if row existed."""
-    conn = get_connection()
-    cursor = conn.execute("UPDATE jobs SET status = ? WHERE id = ?", (status, job_id))
-    conn.commit()
-    conn.close()
-    return cursor.rowcount > 0
-
-
 # -- Routes ------------------------------------------------------------------
 
 
@@ -364,7 +356,7 @@ async def manual_status(job_id: int, request: Request) -> JSONResponse:
     body = await request.json()
     status = body.get("status", "")
 
-    updated = _update_job_status(job_id, status)
+    updated = _update_job_status(job_id, status, DB_PATH)
     if not updated:
         raise HTTPException(status_code=404, detail="Job not found")
 

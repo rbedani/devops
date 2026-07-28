@@ -85,7 +85,7 @@ class TestIndeedCardParsing:
         assert job.company == ""
 
     def test_parse_card_with_salary(self):
-        """TRIANGULATE: salary text should be attached as tag."""
+        """TRIANGULATE: salary text should be attached as 'salario' tag."""
         card_data = {
             "title": "SRE",
             "company": "CloudCo",
@@ -94,7 +94,7 @@ class TestIndeedCardParsing:
         }
         job = IndeedScraper._parse_card_from_data(card_data)
         assert job is not None
-        assert job.get_tag("salary") == "40.000 € - 60.000 € al año"
+        assert job.get_tag("salario") == "40.000 € - 60.000 € al año"
 
     def test_parse_card_no_data_jk_returns_job_with_empty_url(self):
         """TRIANGULATE: card without data_jk should return Job with empty url."""

@@ -1,11 +1,9 @@
 <div class="platforms-list">
   {% for platform in platforms %}
     <div class="platform-item{% if not platform.enabled %} platform-disabled{% endif %}" id="platform-{{ platform.id }}">
-      <label class="platform-checkbox-label">
-        <input type="checkbox" name="platforms" value="{{ platform.name|lower }}" class="platform-checkbox" {% if platform.enabled %}checked{% endif %}>
-        <span class="platform-item-name">{{ platform.name }}</span>
-        {% if not platform.enabled %}<span class="platform-disabled-badge">DISABLED</span>{% endif %}
-      </label>
+      <span class="platform-status-dot{% if platform.enabled %} enabled{% else %} disabled{% endif %}"></span>
+      <span class="platform-item-name">{{ platform.name }}</span>
+      {% if not platform.enabled %}<span class="platform-disabled-badge">DISABLED</span>{% endif %}
       <span class="platform-item-url">{{ platform.url }}</span>
       <button class="btn btn-platform-toggle"
               hx-post="/datos/platforms/toggle/{{ platform.id }}"
@@ -14,21 +12,6 @@
               title="{% if platform.enabled %}Disable{% else %}Enable{% endif %} {{ platform.name }}">
         {% if platform.enabled %}DISABLE{% else %}ENABLE{% endif %}
       </button>
-      <button class="btn btn-platform-remove"
-              hx-post="/datos/platforms/remove/{{ platform.id }}"
-              hx-target=".platforms-container"
-              hx-swap="innerHTML">REMOVE</button>
     </div>
   {% endfor %}
-  <form class="platform-add-form" hx-post="/datos/platforms/add" hx-target=".platforms-container" hx-swap="innerHTML">
-    <div class="datos-form-group">
-      <label class="datos-form-label">Platform Name</label>
-      <input class="datos-form-input" type="text" name="name" placeholder="e.g. LinkedIn" required>
-    </div>
-    <div class="datos-form-group">
-      <label class="datos-form-label">URL</label>
-      <input class="datos-form-input" type="url" name="url" placeholder="https://..." required>
-    </div>
-    <button class="btn btn-toggle" type="submit">ADD PLATFORM</button>
-  </form>
 </div>

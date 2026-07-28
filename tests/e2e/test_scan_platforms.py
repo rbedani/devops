@@ -77,13 +77,11 @@ class TestPlatformToggle:
             linkedin_item = _get_platform_item(page, "LinkedIn")
             infojobs_item = _get_platform_item(page, "InfoJobs")
 
-            linkedin_cb = linkedin_item.query_selector("input[name='platforms']") if linkedin_item else None
             linkedin_toggle = linkedin_item.query_selector(".btn-platform-toggle") if linkedin_item else None
-            infojobs_cb = infojobs_item.query_selector("input[name='platforms']") if infojobs_item else None
             infojobs_toggle = infojobs_item.query_selector(".btn-platform-toggle") if infojobs_item else None
 
-            print(f"  LinkedIn cb={'checked' if linkedin_cb and linkedin_cb.is_checked() else 'unchecked'} toggle={linkedin_toggle.inner_text() if linkedin_toggle else 'N/A'}")
-            print(f"  InfoJobs cb={'checked' if infojobs_cb and infojobs_cb.is_checked() else 'unchecked'} toggle={infojobs_toggle.inner_text() if infojobs_toggle else 'N/A'}")
+            print(f"  LinkedIn toggle={linkedin_toggle.inner_text() if linkedin_toggle else 'N/A'}")
+            print(f"  InfoJobs toggle={infojobs_toggle.inner_text() if infojobs_toggle else 'N/A'}")
 
             if linkedin_toggle and linkedin_toggle.inner_text() == "DISABLE":
                 print("  Disabling LinkedIn...")
@@ -97,18 +95,13 @@ class TestPlatformToggle:
 
             infojobs_item = _get_platform_item(page, "InfoJobs")
             if infojobs_item:
-                infojobs_cb = infojobs_item.query_selector("input[name='platforms']")
                 infojobs_toggle = infojobs_item.query_selector(".btn-platform-toggle")
-                if infojobs_cb and not infojobs_cb.is_checked():
-                    infojobs_cb.check()
-                print(f"  InfoJobs after: cb={'checked' if infojobs_cb and infojobs_cb.is_checked() else 'unchecked'} toggle={infojobs_toggle.inner_text() if infojobs_toggle else 'N/A'}")
+                print(f"  InfoJobs after: toggle={infojobs_toggle.inner_text() if infojobs_toggle else 'N/A'}")
 
             linkedin_item = _get_platform_item(page, "LinkedIn")
             if linkedin_item:
-                linkedin_cb = linkedin_item.query_selector("input[name='platforms']")
-                if linkedin_cb and linkedin_cb.is_checked():
-                    linkedin_cb.uncheck()
-                print(f"  LinkedIn after: cb={'checked' if linkedin_cb and linkedin_cb.is_checked() else 'unchecked'}")
+                linkedin_toggle = linkedin_item.query_selector(".btn-platform-toggle")
+                print(f"  LinkedIn after: toggle={linkedin_toggle.inner_text() if linkedin_toggle else 'N/A'}")
 
             page.check("#scan-debug")
 
@@ -120,12 +113,12 @@ class TestPlatformToggle:
             if scan_get:
                 scan_url = scan_get[0]
                 print(f"  Scan URL: {scan_url[:200]}")
-                assert "infojobs" in scan_url.lower(), (
-                    f"InfoJobs deberia estar en la URL: {scan_url}"
+                # Platforms are no longer in the URL — backend reads enabled
+                # platforms from DB (single source of truth)
+                assert "platforms=" not in scan_url.lower(), (
+                    f"platforms= no deberia estar en la URL: {scan_url}"
                 )
-                has_linkedin = "linkedin" in scan_url.lower() and "platforms=linkedin" in scan_url.lower()
-                print(f"  LinkedIn in scan URL: {has_linkedin}")
-                print(f"  Scan ejecutandose con InfoJobs")
+                print(f"  Scan ejecutandose (plataformas desde DB)")
             else:
                 print("  No se capturo URL de scan")
 

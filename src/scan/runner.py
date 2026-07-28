@@ -105,6 +105,7 @@ async def run_scan(
             env = os.environ.copy()
             env["SCRAPE_PLATFORM"] = platform
             env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"   # prevent espa�a on Windows
             if debug:
                 env["DEBUG_MODE"] = "3"
             if keyword:
@@ -137,7 +138,7 @@ async def run_scan(
                         await proc.wait()
                     break
 
-                line = line_raw.decode("utf-8", errors="replace").rstrip("\n")
+                line = line_raw.decode("utf-8", errors="surrogateescape").rstrip("\n")
                 m = PROGRESS_RE.match(line)
                 if m:
                     target_name = m.group(1)

@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from playwright.async_api import async_playwright
-
-from src.apply.classifier import classify_outcome
 
 
 class AutoApply:

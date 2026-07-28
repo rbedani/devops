@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH, PROJECT_ROOT
+from src.core.db.database import run_migrations as run_core_migrations
 from src.datos.store import run_datos_migration
 from src.scan.store import run_scan_migration
 
@@ -80,6 +81,7 @@ def run_migration(db_path: str) -> None:
 async def lifespan(app: FastAPI):
     """Run migrations on startup, clean up on shutdown."""
     run_migration(DB_PATH)
+    run_core_migrations(DB_PATH)
     run_datos_migration(DB_PATH)
     run_scan_migration(DB_PATH)
     yield

@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
+from src.core.db.database import update_job_status as _update_job_status
 from src.datos.store import get_cv, get_fields, get_connection as get_datos_connection
 from src.apply.auto_apply import AutoApply
 
@@ -20,20 +21,6 @@ router = APIRouter(prefix="/api", tags=["api"])
 
 # Module-level DB_PATH (patchable by tests)
 DB_PATH: str = str(_CORE_DB_PATH)
-
-
-# -- Helpers -------------------------------------------------------------------
-
-
-def _update_job_status(job_id: int, status: str) -> bool:
-    """Set the status column for a job row. Returns True if row existed."""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.execute(
-        "UPDATE jobs SET status = ? WHERE id = ?", (status, job_id)
-    )
-    conn.commit()
-    conn.close()
-    return cursor.rowcount > 0
 
 
 # -- Routes --------------------------------------------------------------------
@@ -91,7 +78,7 @@ async def api_auto_apply(request: Request) -> JSONResponse:
 
         url = row["url"]
         status = await applier.apply(url)
-        _update_job_status(job_id, status)
+        _update_job_status(job_id, status, DB_PATH)
         results.append({"id": job_id, "status": status})
 
     return JSONResponse({"results": results})

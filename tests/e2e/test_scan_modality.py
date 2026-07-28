@@ -115,9 +115,6 @@ class TestScanModalityUI:
             page.check("#scan-debug")
 
             page.wait_for_timeout(3000)
-            linkedin_cb = page.query_selector("input[name='platforms'][value='linkedin']")
-            if linkedin_cb and not linkedin_cb.is_checked():
-                linkedin_cb.check()
 
             page.click("#scan-btn")
             page.wait_for_timeout(3000)

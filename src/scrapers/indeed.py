@@ -84,7 +84,11 @@ def _parse_card_from_data(card: dict[str, Any]) -> Job | None:
 
     salary = (card.get("salary") or "").strip()
     if salary:
-        job.set_tag("salary", salary, 0.9)
+        job.set_tag("salario", salary, 0.9)
+
+    date_str = (card.get("date") or "").strip()
+    if date_str:
+        job.set_tag("fecha_publicacion", date_str, 0.9)
 
     return job
 
@@ -320,5 +324,21 @@ class IndeedScraper(BaseScraper):
                 if salary:
                     break
         data["salary"] = salary
+
+        # Date — fallback selectors (Indeed shows relative text like "Hace 3 días")
+        date_str = ""
+        for sel in (
+            "[data-testid=\"myJobsStateDate\"]",
+            "span[data-testid=\"myJobsStateDate\"]",
+            ".jobsearch-JobMetadataFooter-item:last-child",
+            "time",
+            "[class*=\"date\"]",
+        ):
+            el = await card.query_selector(sel)
+            if el:
+                date_str = (await el.get_attribute("datetime")) or (await el.inner_text()).strip()
+                if date_str:
+                    break
+        data["date"] = date_str
 
         return data

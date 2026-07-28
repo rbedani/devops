@@ -266,18 +266,6 @@
     white-space: nowrap;
 }
 
-.btn-platform-remove {
-    flex: 0 0 auto;
-    background: transparent;
-    color: var(--status-red);
-    border: 1px solid var(--status-red);
-    text-transform: uppercase;
-}
-
-.btn-platform-remove:hover {
-    background: rgba(255, 59, 48, 0.1);
-}
-
 /* --- Platform enabled/disabled toggle --- */
 
 .platform-disabled {
@@ -314,27 +302,4 @@
 .btn-platform-toggle:hover {
     background: var(--bg-tertiary);
     color: var(--text-primary);
-}
-
-.platform-add-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: flex-end;
-}
-
-.platform-add-form .datos-form-group {
-    flex: 1 1 160px;
-    margin-bottom: 0;
-}
-
-.btn-platform-add {
-    flex: 0 0 auto;
-    background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-}
-
-.btn-platform-add:hover {
-    background: var(--accent-dim);
 }

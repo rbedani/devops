@@ -1494,40 +1494,35 @@ class TestPlatformCombo:
 # =============================================================================
 
 class TestScanPlatformsParam:
-    """/scan endpoint accepts platforms list parameter."""
+    """/scan endpoint reads enabled platforms from DB (single source of truth)."""
 
-    def test_scan_accepts_platforms_param(self, client):
-        """RED: GET /scan?platforms=linkedin should accept platforms param."""
+    def test_scan_ignores_platforms_in_url(self, client):
+        """RED: GET /scan?platforms=linkedin should still work (param is ignored)."""
         from unittest.mock import patch
         from src.scan.runner import scan_state
         scan_state.reset()
 
-        with patch("src.scan.routes.run_scan"):
+        with patch("src.scan.routes.run_scan"), \
+             patch("src.scan.routes.get_enabled_platform_names", return_value=["linkedin"]):
             response = client.get("/scan?platforms=linkedin")
         assert response.status_code == 200
 
-    def test_scan_accepts_multiple_platforms(self, client):
-        """RED: GET /scan?platforms=linkedin&platforms=indeed should accept multiple platforms."""
+    def test_scan_reads_platforms_from_db(self, client):
+        """RED: /scan should call get_enabled_platform_names and pass to run_scan."""
         from unittest.mock import patch
         from src.scan.runner import scan_state
         scan_state.reset()
 
-        with patch("src.scan.routes.run_scan") as mock_run:
-            response = client.get("/scan?platforms=linkedin&platforms=indeed")
-        assert response.status_code == 200
+        with patch("src.scan.routes.run_scan") as mock_run, \
+             patch("src.scan.routes.get_enabled_platform_names", return_value=["linkedin", "indeed"]) as mock_get:
+            client.get("/scan")
 
-    def test_scan_passes_platforms_to_run_scan(self, client):
-        """RED: platforms should be passed through to run_scan."""
-        from unittest.mock import patch
-        from src.scan.runner import scan_state
-        scan_state.reset()
-
-        with patch("src.scan.routes.run_scan") as mock_run:
-            client.get("/scan?platforms=linkedin")
-
+        mock_get.assert_called_once()
         mock_run.assert_called_once()
         _, kwargs = mock_run.call_args
-        assert "platforms" in kwargs
+        assert kwargs["platforms"] == ["linkedin", "indeed"], (
+            f"platforms should come from DB, got {kwargs.get('platforms')}"
+        )
 
     def test_run_scan_platforms_accepts_list(self):
         """RED: run_scan should accept platforms list and iterate."""

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
 from src.scan.runner import run_scan, scan_state
-from src.scan.store import add_platform, get_connection, get_platforms, remove_platform, run_scan_migration, toggle_platform
+from src.scan.store import get_connection, get_enabled_platform_names, get_platforms, run_scan_migration, toggle_platform
 
 # -- Paths -------------------------------------------------------------------
 
@@ -63,9 +62,6 @@ def _save_params(data: dict) -> None:
         return
     SCAN_PARAMS_PATH.parent.mkdir(parents=True, exist_ok=True)
     SCAN_PARAMS_PATH.write_text(json.dumps(data, indent=2))
-
-
-_URL_RE = re.compile(r"^https?://[^\s/$.?#].[^\s]*$", re.IGNORECASE)
 
 
 # ===========================================================================
@@ -146,7 +142,6 @@ async def trigger_scan(
     modality: list[str] = Query([]),
     date_range: str = Query(""),
     debug_mode: str = Query(""),
-    platforms: list[str] = Query([]),
 ) -> HTMLResponse:
     """Trigger an async scan and return progress partial.
 
@@ -156,7 +151,7 @@ async def trigger_scan(
     title/company filtering.
     The location, modality, and date_range params are passed as env vars
     to the subprocess for search configuration.
-    The platforms param specifies which platforms to scan (e.g. linkedin).
+    Enabled platforms are read from the database (single source of truth).
     """
     if not scan_state.running:
         # Reset state
@@ -170,13 +165,18 @@ async def trigger_scan(
 
         is_debug = debug_mode == "on"
 
+        # Read enabled platforms from DB (single source of truth)
+        conn = _get_conn()
+        enabled_platforms = get_enabled_platform_names(conn)
+        conn.close()
+
         # Fire-and-forget background task
         import asyncio
         scan_state._scan_task = asyncio.create_task(run_scan(
             scan_state,
             debug=is_debug,
             keyword=q,
-            platforms=platforms,
+            platforms=enabled_platforms,
             location=location,
             modality=modality,
             date_range=date_range,
@@ -259,50 +259,6 @@ async def datos_platforms(request: Request) -> HTMLResponse:
     conn = _get_conn()
     platforms = get_platforms(conn)
     conn.close()
-    return templates.TemplateResponse(
-        request, "partials/scan/platforms.html",
-        {"platforms": platforms},
-    )
-
-
-@scan_router.post("/datos/platforms/add", response_class=HTMLResponse)
-async def datos_platforms_add(
-    request: Request,
-    name: str = Form(...),
-    url: str = Form(...),
-) -> HTMLResponse:
-    """Add a new platform."""
-    # Validate URL format
-    if not (url.startswith("http://") or url.startswith("https://")):
-        return HTMLResponse("Invalid URL format", status_code=400)
-    if not _URL_RE.match(url):
-        return HTMLResponse("Invalid URL format", status_code=400)
-
-    conn = _get_conn()
-    try:
-        add_platform(conn, name, url)
-    except Exception:
-        return HTMLResponse("Platform already exists", status_code=400)
-    finally:
-        platforms = get_platforms(conn)
-        conn.close()
-    return templates.TemplateResponse(
-        request, "partials/scan/platforms.html",
-        {"platforms": platforms},
-    )
-
-
-@scan_router.post("/datos/platforms/remove/{platform_id}", response_class=HTMLResponse)
-async def datos_platforms_remove(
-    request: Request, platform_id: int,
-) -> HTMLResponse:
-    """Remove a platform by id."""
-    conn = _get_conn()
-    try:
-        remove_platform(conn, platform_id)
-        platforms = get_platforms(conn)
-    finally:
-        conn.close()
     return templates.TemplateResponse(
         request, "partials/scan/platforms.html",
         {"platforms": platforms},

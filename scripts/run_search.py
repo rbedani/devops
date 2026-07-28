@@ -2,6 +2,7 @@
 """Run job search using configured targets."""
 
 import asyncio
+import io
 import json
 import logging
 import os
@@ -15,7 +16,11 @@ from src.scrapers.indeed import IndeedScraper
 from src.core.db.database import JobDatabase, run_migrations
 from src.alerts.telegram import format_jobs_table
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+# Force UTF-8 everywhere on Windows — prevents garbled characters like españa
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 CONFIG_PATH = TARGETS_PATH
@@ -235,7 +240,7 @@ async def main():
     # Filter by SCRAPE_PLATFORM env var when set
     scan_platform = os.environ.get("SCRAPE_PLATFORM", "").strip()
     if scan_platform:
-        enabled = [t for t in enabled if t.platform == scan_platform]
+        enabled = [t for t in enabled if t.platform.lower() == scan_platform.lower()]
 
     logger.info("Loaded %d targets (%d enabled)", len(targets), len(enabled))
 
