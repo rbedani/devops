@@ -315,6 +315,34 @@ class TestStore:
         conn.close()
         assert result is False
 
+    def test_seed_tecnoempleo(self, db_path: str):
+        """RED: SCAN migration should seed Tecnoempleo with correct url and enabled=1."""
+        from src.scan.store import run_scan_migration, get_connection
+
+        run_scan_migration(db_path)
+        conn = get_connection(db_path)
+        rows = conn.execute(
+            "SELECT name, url, enabled FROM scan_platforms WHERE name = ?", ("Tecnoempleo",)
+        ).fetchall()
+        conn.close()
+        assert len(rows) == 1
+        assert rows[0]["name"] == "Tecnoempleo"
+        assert rows[0]["url"] == "https://www.tecnoempleo.com/ofertas-trabajo/"
+        assert rows[0]["enabled"] == 1
+
+    def test_seed_tecnoempleo_idempotent(self, db_path: str):
+        """TRIANGULATE: running migration twice should not duplicate Tecnoempleo."""
+        from src.scan.store import run_scan_migration, get_connection
+
+        run_scan_migration(db_path)
+        run_scan_migration(db_path)
+        conn = get_connection(db_path)
+        rows = conn.execute(
+            "SELECT COUNT(*) as cnt FROM scan_platforms WHERE name = ?", ("Tecnoempleo",)
+        ).fetchone()
+        conn.close()
+        assert rows["cnt"] == 1
+
 
 # =============================================================================
 # D1.3 — Routes (TestClient integration)

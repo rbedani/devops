@@ -14,6 +14,25 @@ import sys
 from dataclasses import dataclass, field
 
 
+# Map DB display names → internal platform slugs used by run_search.py
+# The dashboard stores user-friendly names in scan_platforms, while
+# run_search.py's SCRAPE_PLATFORM filter matches against SearchTarget.platform
+# (e.g. "wttj", "linkedin"). This lookup bridges the two worlds.
+PLATFORM_SLUG_MAP: dict[str, str] = {
+    "linkedin": "linkedin",
+    "infojobs": "infojobs",
+    "indeed": "indeed",
+    "tecnoempleo": "tecnoempleo",
+    "welcome to the jungle": "wttj",
+}
+
+
+def _platform_slug(display_name: str) -> str:
+    """Convert a DB display name to an internal platform slug."""
+    key = display_name.strip().lower()
+    return PLATFORM_SLUG_MAP.get(key, key)
+
+
 def sanitize_keyword(keyword: str, max_length: int = 200) -> str:
     """Strip shell-dangerous characters and truncate to max_length.
 
@@ -103,7 +122,7 @@ async def run_scan(
             state.current_target = platform
 
             env = os.environ.copy()
-            env["SCRAPE_PLATFORM"] = platform
+            env["SCRAPE_PLATFORM"] = _platform_slug(platform)
             env["PYTHONUNBUFFERED"] = "1"
             env["PYTHONIOENCODING"] = "utf-8"   # prevent espa�a on Windows
             if debug:

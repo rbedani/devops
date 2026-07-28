@@ -77,3 +77,15 @@ src/models/
 # Audit / dev-only scripts
 scripts/audit_*.py
 scripts/inspect_opencode.py
+
+# CodeGraph index
+.codegraph/
+
+# Logs
+*.log
+
+# SDD planning artifacts
+sdd/
+
+# Test evidence output
+tests/evidence/

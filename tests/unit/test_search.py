@@ -104,6 +104,115 @@ class TestSearchFilters:
         params = f.to_indeed_params()
         assert "jt" not in params
 
+    # -- Tecnoempleo params (TECNO-001) ---------------------------------------
+
+    def test_tecnoempleo_params_keyword_join(self):
+        """RED: keywords should map to 'keyword' (space-joined) for path-slug."""
+        f = SearchFilters(keywords=["devops", "cloud"])
+        params = f.to_tecnoempleo_params()
+        assert params["keyword"] == "devops cloud"
+
+    def test_tecnoempleo_params_en_remoto(self):
+        """RED: 'remoto' modality should produce en_remoto=',1,'."""
+        f = SearchFilters(modalities=["remoto"])
+        params = f.to_tecnoempleo_params()
+        assert "en_remoto" in params
+        assert params["en_remoto"] == ",1,"
+
+    def test_tecnoempleo_params_passthrough(self):
+        """RED: location and date_range should pass through as metadata."""
+        f = SearchFilters(countries=["Madrid"], date_range="last_week")
+        params = f.to_tecnoempleo_params()
+        assert params["location"] == "Madrid"
+        assert params["date_range"] == "last_week"
+
+    def test_tecnoempleo_params_empty_filters(self):
+        """TRIANGULATE: empty filters should return empty dict."""
+        f = SearchFilters()
+        params = f.to_tecnoempleo_params()
+        assert params == {}
+
+    def test_tecnoempleo_params_modality_multiple(self):
+        """TRIANGULATE: 'hibrido' without 'remoto' should NOT set en_remoto."""
+        f = SearchFilters(modalities=["hibrido", "presencial"])
+        params = f.to_tecnoempleo_params()
+        assert "en_remoto" not in params
+
+    def test_tecnoempleo_params_keywords_single(self):
+        """TRIANGULATE: single keyword should still be in params as-is."""
+        f = SearchFilters(keywords=["devops"])
+        params = f.to_tecnoempleo_params()
+        assert params["keyword"] == "devops"
+
+
+    # -- WTTJ params (WTTJ-PRM-001) -------------------------------------------
+
+    def test_wttj_params_keyword(self):
+        """RED: keywords should map to 'keyword' (space-joined)."""
+        f = SearchFilters(keywords=["devops", "sre"])
+        params = f.to_wttj_params()
+        assert params["keyword"] == "devops sre"
+
+    def test_wttj_params_remote_remoto(self):
+        """RED: remoto → remote=full_time."""
+        f = SearchFilters(modalities=["remoto"])
+        params = f.to_wttj_params()
+        assert params["remote"] == "full_time"
+
+    def test_wttj_params_remote_hibrido(self):
+        """TRIANGULATE: hibrido → remote=partial."""
+        f = SearchFilters(modalities=["hibrido"])
+        params = f.to_wttj_params()
+        assert params["remote"] == "partial"
+
+    def test_wttj_params_remote_presencial(self):
+        """TRIANGULATE: presencial → remote=full_time."""
+        f = SearchFilters(modalities=["presencial"])
+        params = f.to_wttj_params()
+        assert params["remote"] == "full_time"
+
+    def test_wttj_params_remote_first_match(self):
+        """TRIANGULATE: multiple modalities, first match wins."""
+        f = SearchFilters(modalities=["hibrido", "remoto"])
+        params = f.to_wttj_params()
+        assert params["remote"] == "partial"  # hibrido matches first
+
+    def test_wttj_params_days_ago_week(self):
+        """RED: last_week → days_ago=7."""
+        f = SearchFilters(date_range="last_week")
+        params = f.to_wttj_params()
+        assert params["days_ago"] == "7"
+
+    def test_wttj_params_days_ago_day(self):
+        """TRIANGULATE: last_24h → days_ago=1."""
+        f = SearchFilters(date_range="last_24h")
+        params = f.to_wttj_params()
+        assert params["days_ago"] == "1"
+
+    def test_wttj_params_days_ago_month(self):
+        """TRIANGULATE: last_month → days_ago=30."""
+        f = SearchFilters(date_range="last_month")
+        params = f.to_wttj_params()
+        assert params["days_ago"] == "30"
+
+    def test_wttj_params_empty_filters(self):
+        """TRIANGULATE: empty filters should return {}."""
+        f = SearchFilters()
+        params = f.to_wttj_params()
+        assert params == {}
+
+    def test_wttj_params_all_params(self):
+        """INTEGRATE: all filters combined."""
+        f = SearchFilters(
+            keywords=["devops"],
+            modalities=["remoto"],
+            date_range="last_week",
+        )
+        params = f.to_wttj_params()
+        assert params["keyword"] == "devops"
+        assert params["remote"] == "full_time"
+        assert params["days_ago"] == "7"
+
 
 class TestSearchTarget:
     def test_create_target(self):
