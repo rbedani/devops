@@ -24,7 +24,7 @@ def get_connection(db_path: str = "") -> sqlite3.Connection:
 
 def _run_enabled_migration(conn: sqlite3.Connection) -> None:
     """Add enabled column if missing (idempotent)."""
-    try:
+    try:  # noqa: SIM105
         conn.execute("ALTER TABLE scan_platforms ADD COLUMN enabled INTEGER DEFAULT 1")
     except sqlite3.OperationalError:
         pass  # Column already exists

@@ -32,7 +32,7 @@ SCAN_PARAMS_PATH = Path(__file__).parent.parent.parent / "config" / "scan_params
 
 # -- Templates ---------------------------------------------------------------
 
-from fastapi.templating import Jinja2Templates
+from fastapi.templating import Jinja2Templates  # noqa: E402
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
@@ -100,7 +100,7 @@ async def scan_config(request: Request) -> HTMLResponse:
                 kw = targets[0].filters.keywords
                 keyword = ", ".join(kw) if kw else ""
                 if not location:
-                    location = ", ".join(targets[0].filters.countries) if targets[0].filters.countries else ""
+                    location = ", ".join(targets[0].filters.countries) if targets[0].filters.countries else ""  # noqa: E501
                 if not modalities:
                     modalities = [m.lower() for m in targets[0].filters.modalities]
                 if not date_range:
@@ -127,7 +127,7 @@ async def scan_config_save(
     request: Request,
     q: str = Form(""),
     location: str = Form(""),
-    modality: list[str] = Form([]),
+    modality: list[str] = Form([]),  # noqa: B008
     date_range: str = Form(""),
 ) -> HTMLResponse:
     """Save scan parameters to persistent storage."""
@@ -145,7 +145,7 @@ async def trigger_scan(
     request: Request,
     q: str = Query(""),
     location: str = Query(""),
-    modality: list[str] = Query([]),
+    modality: list[str] = Query([]),  # noqa: B008
     date_range: str = Query(""),
     debug_mode: str = Query(""),
 ) -> HTMLResponse:

@@ -119,7 +119,7 @@ def remove_field(conn: sqlite3.Connection, field_id: int) -> bool:
 def get_cv(conn: sqlite3.Connection) -> CVFile | None:
     """Return the most recent CV record, or None if none exists."""
     row = conn.execute(
-        "SELECT id, filename, original_name, file_path, uploaded_at FROM cv_files ORDER BY id DESC LIMIT 1"
+        "SELECT id, filename, original_name, file_path, uploaded_at FROM cv_files ORDER BY id DESC LIMIT 1"  # noqa: E501
     ).fetchone()
     if row is None:
         return None
@@ -137,7 +137,7 @@ def save_cv(conn: sqlite3.Connection, filename: str, original_name: str, file_pa
     from datetime import datetime
     uploaded_at = datetime.now(UTC).isoformat()
     cursor = conn.execute(
-        "INSERT INTO cv_files (filename, original_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO cv_files (filename, original_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)",  # noqa: E501
         (filename, original_name, file_path, uploaded_at),
     )
     conn.commit()

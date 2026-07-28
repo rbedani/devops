@@ -37,7 +37,7 @@ async def api_auto_apply(request: Request) -> JSONResponse:
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail="Invalid JSON body")  # noqa: B904
 
     job_ids = body.get("job_ids", [])
     if not isinstance(job_ids, list):

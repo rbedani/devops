@@ -211,7 +211,7 @@ class TecnoempleoScraper(BaseScraper):
             if not cards:
                 # Empty page — check if we hit the end
                 body_text = await self.page.inner_text("body")
-                if "sin resultados" in body_text.lower() or "no se han encontrado" in body_text.lower():
+                if "sin resultados" in body_text.lower() or "no se han encontrado" in body_text.lower():  # noqa: E501
                     logger.info("Tecnoempleo: no matching jobs found")
                 break
 
@@ -380,8 +380,8 @@ class TecnoempleoScraper(BaseScraper):
                     lines = text.split("\n")
                     for line in lines:
                         line = line.strip()
-                        if line and not re.match(r"\d{2}/\d{2}/\d{4}", line):
-                            if not line.startswith("Nueva") and not line.startswith("Actualizada"):
+                        if line and not re.match(r"\d{2}/\d{2}/\d{4}", line):  # noqa: SIM102
+                            if not line.startswith("Nueva") and not line.startswith("Actualizada"):  # noqa: SIM102
                                 # Skip category lines that are short single words
                                 if len(line) > 2 and not line.isupper():
                                     location = line

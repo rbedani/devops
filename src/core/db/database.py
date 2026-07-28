@@ -27,12 +27,12 @@ def _run_content_hash_migration(conn: sqlite3.Connection) -> None:
 
     Uses CREATE UNIQUE INDEX so that ON CONFLICT(content_hash) works in upsert.
     """
-    try:
+    try:  # noqa: SIM105
         conn.execute("ALTER TABLE jobs ADD COLUMN content_hash TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
-    try:
-        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_content_hash ON jobs(content_hash)")
+    try:  # noqa: SIM105
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_content_hash ON jobs(content_hash)")  # noqa: E501
     except sqlite3.OperationalError:
         pass  # Index already exists
     conn.commit()
@@ -40,7 +40,7 @@ def _run_content_hash_migration(conn: sqlite3.Connection) -> None:
 
 def _run_status_migration(conn: sqlite3.Connection) -> None:
     """Add status column if missing (idempotent)."""
-    try:
+    try:  # noqa: SIM105
         conn.execute("ALTER TABLE jobs ADD COLUMN status TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # Column already exists
@@ -198,7 +198,7 @@ class JobDatabase:
                     tags        = excluded.tags,
                     scraped_at  = excluded.scraped_at,
                     content_hash = excluded.content_hash
-                """,
+                """,  # noqa: E501
                 (
                     job.source,
                     job.title,

@@ -235,7 +235,7 @@ def _fetch_jobs(
         tag_dict = _extract_tags(row["tags"] if "tags" in keys else "[]")
         jobs.append({
             "id": row["id"],
-            "date_published": _format_datetime(tag_dict.get("fecha_publicacion", ""), row["scraped_at"] if "scraped_at" in keys else ""),
+            "date_published": _format_datetime(tag_dict.get("fecha_publicacion", ""), row["scraped_at"] if "scraped_at" in keys else ""),  # noqa: E501
             "platform": row["source"],
             "title": row["title"],
             "company": row["company"] or "",
@@ -310,7 +310,7 @@ async def table(
     order_by = _parse_sort(sort if sort else None)
     conn = get_connection()
     offset = (page - 1) * per_page if per_page > 0 else 0
-    jobs, total = _fetch_jobs(conn, search=search, per_page=per_page, offset=offset, since=since, active_filters=active_filters, order_by=order_by)
+    jobs, total = _fetch_jobs(conn, search=search, per_page=per_page, offset=offset, since=since, active_filters=active_filters, order_by=order_by)  # noqa: E501
     conn.close()
 
     total_pages = max(1, (total + per_page - 1) // per_page) if per_page > 0 else 1

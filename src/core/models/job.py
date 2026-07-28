@@ -78,7 +78,7 @@ class Job:
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
-        d["tags"] = [{"key": t.key, "value": t.value, "confidence": t.confidence} for t in self.tags]
+        d["tags"] = [{"key": t.key, "value": t.value, "confidence": t.confidence} for t in self.tags]  # noqa: E501
         d["scraped_at"] = self.scraped_at.isoformat()
         d["status"] = self.status
         return d
@@ -88,7 +88,7 @@ class Job:
         """Reconstruct a Job from a SQLite row (with tags JSON)."""
         import json
 
-        tags_raw = row["tags"] if "tags" in row.keys() else "[]"
+        tags_raw = row.get("tags", "[]")
         tags = [JobTag(**t) for t in json.loads(tags_raw)]
 
         return cls(
@@ -101,7 +101,7 @@ class Job:
             description=row["description"] or "",
             tags=tags,
             scraped_at=datetime.fromisoformat(row["scraped_at"]),
-            status=row["status"] if "status" in row.keys() else "",
+            status=row.get("status", ""),
         )
 
     def __repr__(self) -> str:

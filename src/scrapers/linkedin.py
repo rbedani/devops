@@ -89,7 +89,7 @@ class LinkedInScraper(BaseScraper):
     async def _parse_card(self, card: any) -> Job | None:
         """Extract job data from a single LinkedIn job card element."""
         # Title + URL
-        title_el = await card.query_selector("a.base-card__full-link, a.job-search-card__title-link")
+        title_el = await card.query_selector("a.base-card__full-link, a.job-search-card__title-link")  # noqa: E501
         if not title_el:
             return None
 
@@ -101,7 +101,7 @@ class LinkedInScraper(BaseScraper):
             return None
 
         # Company
-        company_el = await card.query_selector("h4.base-search-card__subtitle, a.hidden-nested-link")
+        company_el = await card.query_selector("h4.base-search-card__subtitle, a.hidden-nested-link")  # noqa: E501
         company = (await company_el.inner_text()).strip() if company_el else ""
 
         # Location
@@ -112,10 +112,10 @@ class LinkedInScraper(BaseScraper):
         date_el = await card.query_selector("time")
         date_str = ""
         if date_el:
-            date_str = await date_el.get_attribute("datetime") or (await date_el.inner_text()).strip()
+            date_str = await date_el.get_attribute("datetime") or (await date_el.inner_text()).strip()  # noqa: E501
 
         # Applicants count
-        applicants_el = await card.query_selector(".num-applicants__caption, .results-context-header__job-count")
+        applicants_el = await card.query_selector(".num-applicants__caption, .results-context-header__job-count")  # noqa: E501
         applicants = (await applicants_el.inner_text()).strip() if applicants_el else ""
 
         job = Job(
@@ -144,9 +144,9 @@ class LinkedInScraper(BaseScraper):
         await self.page.wait_for_timeout(3000)
 
         title = await self._safe_text(".top-card-layout__title, h1")
-        company = await self._safe_text(".topcard__org-name-link, .top-card-layout__second-subtitle")
-        location = await self._safe_text(".topcard__flavor--bullet, .top-card-layout__first-subtitle")
-        description_el = await self.page.query_selector(".description__text, .show-more-less-html__markup")
+        company = await self._safe_text(".topcard__org-name-link, .top-card-layout__second-subtitle")  # noqa: E501
+        location = await self._safe_text(".topcard__flavor--bullet, .top-card-layout__first-subtitle")  # noqa: E501
+        description_el = await self.page.query_selector(".description__text, .show-more-less-html__markup")  # noqa: E501
         description = (await description_el.inner_text()).strip() if description_el else ""
 
         job = Job(

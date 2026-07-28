@@ -143,7 +143,7 @@ async def run_scan(
                 env=env,
             )
 
-            PROGRESS_RE = re.compile(r"^PROGRESS:([^:]+):([\d.]+)%$")
+            PROGRESS_RE = re.compile(r"^PROGRESS:([^:]+):([\d.]+)%$")  # noqa: N806
 
             assert proc.stdout is not None
             async for line_raw in proc.stdout:

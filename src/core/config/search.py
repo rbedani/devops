@@ -123,7 +123,7 @@ class SearchFilters:
             params["keyword"] = " ".join(self.keywords)
 
         # Remote modality → en_remoto=,1,
-        if self.modalities:
+        if self.modalities:  # noqa: SIM102
             if any(m.lower() in ("remoto", "remote") for m in self.modalities):
                 params["en_remoto"] = ",1,"
 

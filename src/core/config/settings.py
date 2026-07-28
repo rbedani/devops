@@ -63,7 +63,7 @@ def load_vault_secret(vault_file: Path | str = VAULT_FILE, key: str = "") -> str
 
     try:
         result = subprocess.run(
-            ["ansible-vault", "view", "--vault-password-file", "vault_password.txt", str(vault_path)],
+            ["ansible-vault", "view", "--vault-password-file", "vault_password.txt", str(vault_path)],  # noqa: E501
             capture_output=True,
             text=True,
             timeout=10,
@@ -79,7 +79,7 @@ def load_vault_secret(vault_file: Path | str = VAULT_FILE, key: str = "") -> str
         return json.dumps(data)
 
     except FileNotFoundError:
-        raise RuntimeError("ansible-vault not installed. Install with: pip install ansible-vault")
+        raise RuntimeError("ansible-vault not installed. Install with: pip install ansible-vault")  # noqa: B904
 
 
 def load_config(config_path: Path | str | None = None) -> AppConfig:

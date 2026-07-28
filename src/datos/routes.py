@@ -38,7 +38,9 @@ CV_DIR = _CORE_CV_DIR
 
 # -- Templates ---------------------------------------------------------------
 
-from fastapi.templating import Jinja2Templates
+import contextlib  # noqa: E402
+
+from fastapi.templating import Jinja2Templates  # noqa: E402
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
@@ -247,7 +249,7 @@ async def datos_cv(request: Request) -> HTMLResponse:
 @datos_router.post("/datos/cv/upload", response_class=HTMLResponse)
 async def datos_cv_upload(
     request: Request,
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
 ) -> HTMLResponse:
     """Upload a PDF CV file."""
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -289,10 +291,8 @@ async def datos_cv_delete(request: Request) -> HTMLResponse:
         cv = get_cv(conn)
         if cv and cv.file_path:
             # Remove file from disk
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 os.remove(cv.file_path)
-            except FileNotFoundError:
-                pass
         delete_cv(conn)
     finally:
         conn.close()

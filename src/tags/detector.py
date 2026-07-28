@@ -37,7 +37,7 @@ class TagRegistry:
         description: str = "",
         priority: int = 0,
     ) -> None:
-        det = TagDetector(key=key, extract_fn=extract_fn, description=description, priority=priority)
+        det = TagDetector(key=key, extract_fn=extract_fn, description=description, priority=priority)  # noqa: E501
         self._detectors.append(det)
         self._detectors.sort(key=lambda d: -d.priority)
 
@@ -64,7 +64,7 @@ class TagRegistry:
 # Built-in detectors
 # ---------------------------------------------------------------------------
 
-def _detect_modality(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
+def _detect_modality(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:  # noqa: E501
     text = f"{title} {description}".lower()
     patterns: list[tuple[str, float]] = []
 
@@ -88,7 +88,7 @@ def _detect_modality(title: str, description: str, _meta: dict[str, Any]) -> lis
     return patterns
 
 
-def _detect_schedule(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
+def _detect_schedule(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:  # noqa: E501
     text = f"{title} {description}".lower()
     patterns: list[tuple[str, float]] = []
 
@@ -159,10 +159,7 @@ def _is_likely_salary(value: float) -> bool:
 
 def _is_year_like(text: str) -> bool:
     """Check if the matched text contains a year (2000-2099)."""
-    for num in re.findall(r'\d{4}', text):
-        if 2000 <= int(num) <= 2099:
-            return True
-    return False
+    return any(2000 <= int(num) <= 2099 for num in re.findall(r'\d{4}', text))
 
 
 def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
@@ -172,13 +169,13 @@ def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[
     seen: set[str] = set()
 
     # Currency symbols
-    CURR = r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|CLP\s*|COP\s*)'
-    CURR_ANY = r'(?:€|USD|EUR|\$)?'
-    NUM = r'\d[\d.,]*\s*(?:k|K|mil)?'
-    SEP = r'(?:\s*[-–aA]\s*)'
+    CURR = r'(?:USD?\s*|\$\s*|€\s*|S/\s*|ARS\s*|CLP\s*|COP\s*)'  # noqa: N806
+    CURR_ANY = r'(?:€|USD|EUR|\$)?'  # noqa: N806
+    NUM = r'\d[\d.,]*\s*(?:k|K|mil)?'  # noqa: N806
+    SEP = r'(?:\s*[-–aA]\s*)'  # noqa: N806
 
     # --- Pattern 1: Salary keyword + amount ---
-    KW = r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa|rango\s+salarial|salary\s+range)'
+    KW = r'(?:salario|salary|compensaci[oó]n|remuneraci[oó]n|pay|remuneration|sueldo|compensa|rango\s+salarial|salary\s+range)'  # noqa: E501, N806
     kw_re = re.compile(
         KW + r'[:\s]*'
         + CURR + r'?' + NUM + CURR_ANY
@@ -218,7 +215,7 @@ def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[
 
     # --- Pattern 3: Attach "bruto anual" context ---
     bruto_re = re.compile(r'(?:bruto|gross)\s*(?:anual|yearly|per\s+year|annual)?', re.IGNORECASE)
-    for m in bruto_re.finditer(text):
+    for m in bruto_re.finditer(text):  # noqa: B007
         if patterns:
             last_val = patterns[-1][0]
             patterns[-1] = (f"{last_val} bruto anual", 0.9)
@@ -226,7 +223,7 @@ def _detect_salary(title: str, description: str, _meta: dict[str, Any]) -> list[
     return patterns
 
 
-def _detect_vacancies(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:
+def _detect_vacancies(title: str, description: str, _meta: dict[str, Any]) -> list[tuple[str, float]]:  # noqa: E501
     text = f"{title} {description}".lower()
     patterns: list[tuple[str, float]] = []
 
@@ -237,7 +234,7 @@ def _detect_vacancies(title: str, description: str, _meta: dict[str, Any]) -> li
     return patterns
 
 
-def _detect_applicants(title: str, description: str, meta: dict[str, Any]) -> list[tuple[str, float]]:
+def _detect_applicants(title: str, description: str, meta: dict[str, Any]) -> list[tuple[str, float]]:  # noqa: E501
     patterns: list[tuple[str, float]] = []
 
     if "applicants" in meta:
@@ -256,7 +253,7 @@ def _detect_applicants(title: str, description: str, meta: dict[str, Any]) -> li
     return patterns
 
 
-def _detect_publication_date(title: str, description: str, meta: dict[str, Any]) -> list[tuple[str, float]]:
+def _detect_publication_date(title: str, description: str, meta: dict[str, Any]) -> list[tuple[str, float]]:  # noqa: E501
     patterns: list[tuple[str, float]] = []
 
     if "published_date" in meta:
