@@ -11,15 +11,15 @@ from pathlib import Path
 class TestDeadCodeVerification:
     """Verify the files exist now (pre-condition) and nothing imports them."""
 
-    def test_dashboard_filters_module_exists_precondition(self):
-        """Pre-condition: src/dashboard/filters.py exists before deletion."""
-        path = Path("src/dashboard/filters.py")
-        assert path.exists(), f"Pre-condition failed: {path} does not exist"
+    def test_status_filters_module_exists(self):
+        """Filters moved to src/status/filters.py."""
+        path = Path("src/status/filters.py")
+        assert path.exists(), f"Expected migrated filters module: {path} does not exist"
 
-    def test_dashboard_scan_module_exists_precondition(self):
-        """Pre-condition: src/dashboard/scan.py exists before deletion."""
-        path = Path("src/dashboard/scan.py")
-        assert path.exists(), f"Pre-condition failed: {path} does not exist"
+    def test_scan_store_module_exists(self):
+        """Scan store moved to src/scan/store.py."""
+        path = Path("src/scan/store.py")
+        assert path.exists(), f"Expected migrated scan store: {path} does not exist"
 
     def test_no_live_code_imports_dashboard_filters(self):
         """No .py file under src/ (other than itself) imports from src.dashboard.filters."""

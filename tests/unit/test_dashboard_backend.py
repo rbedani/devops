@@ -1885,8 +1885,10 @@ class TestDateFilterFechaPublicacion:
         assert "32 Days Old" not in response.text
 
     def test_date_filter_includes_recently_published(self, client, seeded_db):
-        """TRIANGULATE: job published 1h ago → 'Last 24h' must INCLUDE it."""
+        """TRIANGULATE: job published today → 'Last 24h' must INCLUDE it."""
         import sqlite3
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         conn = sqlite3.connect(seeded_db)
         conn.execute(
             "INSERT INTO jobs (source, title, url, company, location, tags, scraped_at, status) "
@@ -1894,7 +1896,7 @@ class TestDateFilterFechaPublicacion:
             ("linkedin", "Recent Publish", "http://x/recent-pub",
              "NewCo", "Remote",
              '[{"key":"fecha_publicacion","value":"' +
-             "2026-07-27" + '","confidence":1.0}]',
+             today + '","confidence":1.0}]',
              ""),
         )
         conn.commit()
@@ -1902,7 +1904,7 @@ class TestDateFilterFechaPublicacion:
 
         response = client.get("/table?since=24h")
         assert response.status_code == 200
-        # Published today (2026-07-27) → within 24h → MUST appear
+        # Published today → within 24h → MUST appear
         assert "Recent Publish" in response.text
 
 

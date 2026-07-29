@@ -33,5 +33,8 @@ jobs:
         run: mypy src/
         continue-on-error: true
 
+      - name: Install Playwright browsers
+        run: python -m playwright install chromium
+
       - name: Run tests
         run: pytest --cov=src tests/

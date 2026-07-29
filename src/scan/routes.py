@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -19,9 +20,11 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from src.core.config.settings import DB_PATH as _CORE_DB_PATH
 from src.scan.runner import run_scan, scan_state
 from src.scan.store import (
+    add_platform,
     get_connection,
     get_enabled_platform_names,
     get_platforms,
+    remove_platform,
     toggle_platform,
 )
 
@@ -280,6 +283,50 @@ async def datos_platforms_toggle(
         new_state = toggle_platform(conn, platform_id)
         if new_state is None:
             return HTMLResponse("Platform not found", status_code=404)
+        platforms = get_platforms(conn)
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request, "partials/scan/platforms.html",
+        {"platforms": platforms},
+    )
+
+
+@scan_router.post("/datos/platforms/add", response_class=HTMLResponse)
+async def datos_platforms_add(
+    request: Request,
+    name: str = Form(""),
+    url: str = Form(""),
+) -> HTMLResponse:
+    """Add a new scan platform."""
+    import re
+    url_pattern = re.compile(r"^https?://[^\s/$.?#].[^\s]*$", re.IGNORECASE)
+    if not url_pattern.match(url):
+        return HTMLResponse("Invalid URL format", status_code=400)
+
+    conn = _get_conn()
+    try:
+        add_platform(conn, name, url)
+        platforms = get_platforms(conn)
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        return HTMLResponse("Platform already exists", status_code=400)
+    finally:
+        conn.close()
+    return templates.TemplateResponse(
+        request, "partials/scan/platforms.html",
+        {"platforms": platforms},
+    )
+
+
+@scan_router.post("/datos/platforms/remove/{platform_id}", response_class=HTMLResponse)
+async def datos_platforms_remove(
+    request: Request, platform_id: int,
+) -> HTMLResponse:
+    """Remove a scan platform by id."""
+    conn = _get_conn()
+    try:
+        remove_platform(conn, platform_id)
         platforms = get_platforms(conn)
     finally:
         conn.close()
