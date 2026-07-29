@@ -56,13 +56,21 @@ def seeded_db(tmp_path: Path) -> str:
 
 @pytest.fixture
 def client(seeded_db: str):
-    """FastAPI TestClient with patched DB_PATH for server AND status routes."""
+    """FastAPI TestClient with patched DB_PATH for server, status, AND scan routes."""
     import src.dashboard.server as server
+    import src.scan.routes as scan_routes
     import src.status.routes as status_routes
     original = server.DB_PATH
     orig_status = status_routes.DB_PATH
+    orig_scan = scan_routes.DB_PATH
     server.DB_PATH = seeded_db
     status_routes.DB_PATH = seeded_db
+    scan_routes.DB_PATH = seeded_db
+
+    # Create scan_platforms table in the test DB
+    from src.scan.store import run_scan_migration
+    run_scan_migration(seeded_db)
+
     try:
         from src.dashboard.server import app
         with TestClient(app) as c:
@@ -70,6 +78,7 @@ def client(seeded_db: str):
     finally:
         server.DB_PATH = original
         status_routes.DB_PATH = orig_status
+        scan_routes.DB_PATH = orig_scan
 
 
 # =============================================================================

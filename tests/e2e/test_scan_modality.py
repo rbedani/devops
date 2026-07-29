@@ -50,7 +50,10 @@ def _ensure_scan_tab(page, server_url: str) -> None:
     page.goto(f"{server_url}/")
     page.wait_for_timeout(1000)
     page.click("button[data-tab='scan']")
-    page.wait_for_timeout(2000)
+    page.wait_for_timeout(1000)
+    # Open collapsible settings panel so form elements are interactable
+    page.click("#settings-toggle")
+    page.wait_for_timeout(500)
 
 
 def _uncheck_all_modalities(page) -> None:

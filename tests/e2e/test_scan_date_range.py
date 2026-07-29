@@ -59,6 +59,9 @@ class TestScanDateRangeUI:
 
             page.click("button[data-tab='scan']")
             page.wait_for_timeout(1000)
+            # Open collapsible settings panel so form elements are interactable
+            page.click("#settings-toggle")
+            page.wait_for_timeout(500)
 
             options = page.query_selector_all("#scan-date-range option")
             option_values = []
@@ -104,7 +107,10 @@ class TestScanDateRangeUI:
             page.wait_for_timeout(1000)
 
             page.click("button[data-tab='scan']")
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1000)
+            # Open collapsible settings panel so form elements are interactable
+            page.click("#settings-toggle")
+            page.wait_for_timeout(500)
 
             page.select_option("#scan-date-range", value=date_range_value)
 
