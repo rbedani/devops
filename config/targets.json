@@ -63,18 +63,5 @@
     "max_results": 25,
     "enabled": true,
     "tags": ["devops", "tecnoempleo", "españa"]
-  },
-  {
-    "name": "devops_wttj_europe",
-    "platform": "wttj",
-    "filters": {
-      "keywords": ["devops", "sre", "cloud"],
-      "countries": ["Spain", "France", "Germany", "UK", "Netherlands"],
-      "modalities": ["remoto", "hibrido"],
-      "date_range": "last_week"
-    },
-    "max_results": 25,
-    "enabled": true,
-    "tags": ["devops", "wttj", "europe", "remote"]
   }
 ]

@@ -135,44 +135,6 @@ class SearchFilters:
 
         return params
 
-    def to_wttj_params(self) -> dict[str, str]:
-        """Convert filters to Welcome to the Jungle search URL parameters.
-
-        WTTJ uses Algolia refinement filters for location (ISO code),
-        remote modality (contract_types), and date range (days_ago).
-        """
-        params: dict[str, str] = {}
-
-        if self.keywords:
-            params["keyword"] = " ".join(self.keywords)
-
-        # WTTJ remote modality → Algolia contract_type facet
-        wttj_remote_map = {
-            "remoto": "full_time",
-            "remote": "full_time",
-            "hibrido": "partial",
-            "hybrid": "partial",
-            "presencial": "full_time",
-            "onsite": "full_time",
-        }
-        if self.modalities:
-            for m in self.modalities:
-                val = wttj_remote_map.get(m.lower())
-                if val:
-                    params["remote"] = val
-                    break
-
-        # WTTJ date range → days_ago (post-filtered by scraper)
-        wttj_date_days = {
-            "last_24h": "1",
-            "last_week": "7",
-            "last_month": "30",
-        }
-        if self.date_range and self.date_range in wttj_date_days:
-            params["days_ago"] = wttj_date_days[self.date_range]
-
-        return params
-
     def matches_job(self, job: Any) -> bool:
         """Check if a scraped job matches this filter set.
 

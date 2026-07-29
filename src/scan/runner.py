@@ -15,14 +15,12 @@ from dataclasses import dataclass, field
 
 # Map DB display names → internal platform slugs used by run_search.py
 # The dashboard stores user-friendly names in scan_platforms, while
-# run_search.py's SCRAPE_PLATFORM filter matches against SearchTarget.platform
-# (e.g. "wttj", "linkedin"). This lookup bridges the two worlds.
+# run_search.py's platform filter matches against SearchTarget.platform.
 PLATFORM_SLUG_MAP: dict[str, str] = {
     "linkedin": "linkedin",
     "infojobs": "infojobs",
     "indeed": "indeed",
     "tecnoempleo": "tecnoempleo",
-    "welcome to the jungle": "wttj",
 }
 
 

@@ -88,17 +88,6 @@ def run_scan_migration(db_path: str) -> None:
                 "INSERT INTO scan_platforms (name, url, enabled) VALUES (?, ?, 1)",
                 ("Tecnoempleo", "https://www.tecnoempleo.com/ofertas-trabajo/"),
             )
-
-        # Seed Welcome to the Jungle if not already present
-        existing_wttj = conn.execute(
-            "SELECT COUNT(*) FROM scan_platforms WHERE name = ?", ("Welcome to the Jungle",)
-        ).fetchone()[0]
-        if existing_wttj == 0:
-            conn.execute(
-                "INSERT INTO scan_platforms (name, url, enabled) VALUES (?, ?, 1)",
-                ("Welcome to the Jungle", "https://www.welcometothejungle.com/en/jobs"),
-            )
-
         conn.commit()
     except (sqlite3.OperationalError, sqlite3.IntegrityError):
         conn.rollback()

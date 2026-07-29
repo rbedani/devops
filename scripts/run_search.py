@@ -14,7 +14,7 @@ from src.scrapers.linkedin import LinkedInScraper
 from src.scrapers.infojobs import InfoJobsScraper
 from src.scrapers.indeed import IndeedScraper
 from src.scrapers.tecnoempleo import TecnoempleoScraper
-from src.scrapers.welcometothejungle import WelcomeToTheJungleScraper
+
 from src.core.db.database import JobDatabase, run_migrations
 from src.alerts.telegram import format_jobs_table
 
@@ -240,26 +240,8 @@ async def run_target(
             logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
                         target.name, len(enriched), len(locations))
             return enriched
-    elif target.platform == "wttj":
-        async with WelcomeToTheJungleScraper(db=db, headless=True) as scraper:
-            base_params = target.filters.to_wttj_params()
-            wttj_query = base_params.get("keyword", "")
-            extra_params = {
-                k: v
-                for k, v in base_params.items()
-                if k not in ("keyword",)
-            }
-            compat_params = dict(base_params)
-            compat_params["keyword"] = wttj_query
-            enriched = await _scrape_and_enrich(
-                scraper, target, locations, compat_params, extra_params,
-                max_jobs, emit_progress,
-            )
-            logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
-                        target.name, len(enriched), len(locations))
-            return enriched
     else:
-        logger.error("Unsupported platform: %s (supported: linkedin, infojobs, indeed, tecnoempleo, wttj)", target.platform)
+        logger.error("Unsupported platform: %s (supported: linkedin, infojobs, indeed, tecnoempleo)", target.platform)
         return []
 
 

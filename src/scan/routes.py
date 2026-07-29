@@ -219,7 +219,6 @@ async def scan_status_check(request: Request) -> HTMLResponse:
         {"state": scan_state, "debug_mode": DEBUG_MODE},
     )
 
-
 @scan_router.get("/scan/status")
 async def scan_status(request: Request) -> StreamingResponse:
     """SSE endpoint streaming scan progress events.
