@@ -74,6 +74,30 @@ class TestJob:
         d = job.to_dict()
         assert d["status"] == "postulado"
 
+    def test_tags_read_from_row_empty_default(self, tmp_path):
+        """Approval: from_row should use '[]' default when row has no tags column."""
+        import sqlite3
+        db_path = tmp_path / "test_tags_empty.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            "CREATE TABLE jobs ("
+            "id INTEGER PRIMARY KEY, source TEXT, title TEXT, url TEXT, "
+            "company TEXT, location TEXT, description TEXT, tags TEXT DEFAULT '[]', "
+            "scraped_at TEXT, status TEXT DEFAULT ''"
+            ")"
+        )
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, scraped_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            ("linkedin", "DevOps", "http://x/1", "Acme", "2024-01-15T10:00:00"),
+        )
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM jobs WHERE id = 1").fetchone()
+        conn.close()
+
+        job = Job.from_row(row)
+        assert job.tags == []
+
     def test_status_read_from_row(self, tmp_path):
         """RED: from_row should read the status column."""
         import sqlite3
