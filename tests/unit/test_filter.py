@@ -62,23 +62,24 @@ class TestFilterRegistry:
 class TestDefaultFilters:
     """DEFAULT_FILTERS — ensure the three expected filters exist."""
 
-    def test_has_hide_postulado(self):
-        f = DEFAULT_FILTERS.by_key("hide_postulado")
+    def test_has_hide_pendientes(self):
+        f = DEFAULT_FILTERS.by_key("hide_pendientes")
         assert f is not None
-        assert f.label == "Ocultar postulados"
-        assert "postulado" in (f.sql_where or "")
-
-    def test_has_hide_errores(self):
-        f = DEFAULT_FILTERS.by_key("hide_errores")
-        assert f is not None
-        assert f.label == "Ocultar errores"
-        assert "general-error" in (f.sql_where or "")
-
-    def test_has_solo_pendientes(self):
-        f = DEFAULT_FILTERS.by_key("solo_pendientes")
-        assert f is not None
-        assert f.label == "Solo pendientes"
+        assert f.label == "Ocultar Pendientes"
         assert "status" in (f.sql_where or "")
+        assert "''" in (f.sql_where or "")
+
+    def test_has_hide_no_aplica(self):
+        f = DEFAULT_FILTERS.by_key("hide_no_aplica")
+        assert f is not None
+        assert f.label == "Ocultar No-Aplica"
+        assert "no-aplica" in (f.sql_where or "")
+
+    def test_has_hide_postulados(self):
+        f = DEFAULT_FILTERS.by_key("hide_postulados")
+        assert f is not None
+        assert f.label == "Ocultar Postulados"
+        assert "postulado" in (f.sql_where or "")
 
     def test_all_defaults_have_sql(self):
         for f in DEFAULT_FILTERS.filters:
@@ -86,16 +87,6 @@ class TestDefaultFilters:
 
     def test_build_all_defaults(self):
         clauses = DEFAULT_FILTERS.build_where_clauses([
-            "hide_postulado", "hide_errores", "solo_pendientes",
+            "hide_pendientes", "hide_no_aplica", "hide_postulados",
         ])
         assert len(clauses) == 3
-
-    def test_combined_clause_contains_all_status_references(self):
-        clauses = DEFAULT_FILTERS.build_where_clauses([
-            "hide_postulado", "hide_errores", "solo_pendientes",
-        ])
-        combined = " AND ".join(clauses)
-        assert "postulado" in combined
-        assert "general-error" in combined
-        assert "auto-apply-failed-unavailable" in combined
-        assert "status" in combined

@@ -64,18 +64,18 @@ class FilterRegistry:
 
 DEFAULT_FILTERS = FilterRegistry(filters=[
     Filter(
-        key="hide_postulado",
-        label="Ocultar postulados",
+        key="hide_pendientes",
+        label="Ocultar Pendientes",
+        sql_where="status != ''",
+    ),
+    Filter(
+        key="hide_no_aplica",
+        label="Ocultar No-Aplica",
+        sql_where="status != 'no-aplica'",
+    ),
+    Filter(
+        key="hide_postulados",
+        label="Ocultar Postulados",
         sql_where="status != 'postulado'",
-    ),
-    Filter(
-        key="hide_errores",
-        label="Ocultar errores",
-        sql_where="status != 'general-error'",
-    ),
-    Filter(
-        key="solo_pendientes",
-        label="Solo pendientes",
-        sql_where="status NOT IN ('postulado', 'general-error', 'auto-apply-failed-unavailable')",
     ),
 ])
