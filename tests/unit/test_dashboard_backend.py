@@ -1629,16 +1629,16 @@ class TestFooterStats:
 # Phase 3 — Task 3.3: Hide postulado filter (RED)
 # =============================================================================
 
-class TestHidePostulado:
-    """GET /table?filters=hide_postulado excludes postulado rows."""
+class TestHidePostulados:
+    """GET /table?filters=hide_postulados excludes postulado rows."""
 
-    def test_hide_postulado_returns_200(self, client):
-        """RED: hide_postulado filter should return 200."""
-        response = client.get("/table?filters=hide_postulado")
+    def test_hide_postulados_returns_200(self, client):
+        """RED: hide_postulados filter should return 200."""
+        response = client.get("/table?filters=hide_postulados")
         assert response.status_code == 200
 
-    def test_hide_postulado_removes_postulado_rows(self, client, seeded_db):
-        """RED: hide_postulado filter should exclude rows with postulado status."""
+    def test_hide_postulados_removes_postulado_rows(self, client, seeded_db):
+        """RED: hide_postulados filter should exclude rows with postulado status."""
         import sqlite3
         # Set a row to 'postulado' status
         conn = sqlite3.connect(seeded_db)
@@ -1646,13 +1646,13 @@ class TestHidePostulado:
         conn.commit()
         conn.close()
 
-        response = client.get("/table?filters=hide_postulado")
+        response = client.get("/table?filters=hide_postulados")
         # Row with status=postulado should be excluded
         assert "Platform Engineer" not in response.text
 
-    def test_hide_postulado_shows_empty_status(self, client):
-        """RED: hide_postulado filter should still show rows with empty status."""
-        response = client.get("/table?filters=hide_postulado")
+    def test_hide_postulados_shows_empty_status(self, client):
+        """RED: hide_postulados filter should still show rows with empty status."""
+        response = client.get("/table?filters=hide_postulados")
         assert "DevOps Engineer" in response.text
         assert "SRE Specialist" in response.text
 
@@ -1915,13 +1915,13 @@ class TestDateFilterFechaPublicacion:
 class TestFilterLabelUpdate:
     """Filter labels: restored to 'Solo pendientes'."""
 
-    def test_filter_label_solo_pendientes(self):
-        """DEFAULT_FILTERS.by_key('solo_pendientes').label should be
-        'Solo pendientes'."""
+    def test_filter_label_hide_pendientes(self):
+        """DEFAULT_FILTERS.by_key('hide_pendientes').label should be
+        'Ocultar Pendientes'."""
         from src.status.filters import DEFAULT_FILTERS
-        f = DEFAULT_FILTERS.by_key("solo_pendientes")
+        f = DEFAULT_FILTERS.by_key("hide_pendientes")
         assert f is not None
-        assert f.label == "Solo pendientes"
+        assert f.label == "Ocultar Pendientes"
 
 
 # =============================================================================
@@ -2114,9 +2114,9 @@ class TestSortIntegration:
         assert "platform:asc" in html or "↑" in html
 
     def test_sort_param_coexists_with_search_and_filters(self, client):
-        """RED: /table?sort=salary:desc&search=Engineer&filters=solo_pendientes
+        """RED: /table?sort=salary:desc&search=Engineer&filters=hide_postulados
         should work correctly with all params."""
-        response = client.get("/table?sort=salary:desc&search=Engineer&filters=solo_pendientes")
+        response = client.get("/table?sort=salary:desc&search=Engineer&filters=hide_postulados")
         assert response.status_code == 200
         html = response.text
         # Should return results since "Engineer" matches at least one row
