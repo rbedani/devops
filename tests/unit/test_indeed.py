@@ -37,6 +37,22 @@ class TestIndeedScraperUnit:
         url = IndeedScraper.build_search_url(query="devops")
         assert "&l=" not in url
 
+    def test_build_search_url_with_jt(self):
+        """RED: build_search_url should add jt param when provided."""
+        url = IndeedScraper.build_search_url(query="devops", jt="hybrid")
+        assert "q=devops" in url
+        assert "jt=hybrid" in url
+
+    def test_build_search_url_no_jt(self):
+        """TRIANGULATE: missing jt should not add jt param."""
+        url = IndeedScraper.build_search_url(query="devops", jt=None)
+        assert "jt=" not in url
+
+    def test_build_search_url_jt_multiple_codes(self):
+        """TRIANGULATE: comma-joined jt codes pass through urlencoded."""
+        url = IndeedScraper.build_search_url(query="devops", jt="work-from-home,on-site")
+        assert "jt=work-from-home%2Con-site" in url
+
     def test_build_detail_url_from_jk(self):
         """RED: build_detail_url should construct viewjob URL from jk."""
         url = IndeedScraper.build_detail_url("abc123")
@@ -126,3 +142,68 @@ class TestIndeedErrorHandling:
         job = IndeedScraper._parse_card_from_data(card)
         assert job is not None
         assert job.company == ""  # REQ-SCRAPE-002: partial → company=""
+
+
+class TestIndeedScrapeSearchParams:
+    """scrape_search forwards extra_params (fromage/jt) to the URL builder."""
+
+    class _FakePage:
+        """Playwright page stand-in: never returns cards, so the loop breaks."""
+
+        async def goto(self, url, wait_until=None, timeout=None):
+            pass
+
+        async def query_selector_all(self, selector):
+            return []
+
+        async def inner_text(self, selector):
+            return "no matching jobs"
+
+    def _make_scraper(self):
+        scraper = IndeedScraper.__new__(IndeedScraper)  # skip __init__ (no DB/browser)
+        scraper._page = self._FakePage()
+        return scraper
+
+    def _record_builder(self, monkeypatch):
+        import src.scrapers.indeed as indeed_mod
+
+        calls: list[dict] = []
+
+        def fake_build(query="", location="", fromage=None, jt=None, start=0):
+            calls.append(
+                {"query": query, "location": location, "fromage": fromage, "jt": jt, "start": start}
+            )
+            return f"{INDEED_SEARCH_URL}?q={query}"
+
+        monkeypatch.setattr(indeed_mod, "_build_search_url", fake_build)
+        return calls
+
+    @pytest.mark.asyncio
+    async def test_scrape_search_passes_jt_and_fromage(self, monkeypatch):
+        """RED: jt/fromage from extra_params must reach the URL builder."""
+        calls = self._record_builder(monkeypatch)
+        scraper = self._make_scraper()
+
+        jobs = await scraper.scrape_search(
+            query="devops",
+            max_results=5,
+            extra_params={"fromage": "7", "jt": "hybrid"},
+        )
+
+        assert jobs == []
+        assert len(calls) == 1
+        assert calls[0]["jt"] == "hybrid"
+        assert calls[0]["fromage"] == 7
+        assert calls[0]["query"] == "devops"
+
+    @pytest.mark.asyncio
+    async def test_scrape_search_jt_none_when_absent(self, monkeypatch):
+        """TRIANGULATE: no jt in extra_params → builder receives jt=None."""
+        calls = self._record_builder(monkeypatch)
+        scraper = self._make_scraper()
+
+        await scraper.scrape_search(query="devops", max_results=5, extra_params={"fromage": "7"})
+
+        assert len(calls) == 1
+        assert calls[0]["jt"] is None
+        assert calls[0]["fromage"] == 7

@@ -98,9 +98,27 @@ class TestSearchFilters:
         params = f.to_indeed_params()
         assert params["jt"] == "on-site"
 
+    def test_indeed_params_modality_hibrido(self):
+        """RED: hibrido → jt=hybrid."""
+        f = SearchFilters(modalities=["hibrido"])
+        params = f.to_indeed_params()
+        assert params["jt"] == "hybrid"
+
+    def test_indeed_params_modality_hybrid(self):
+        """TRIANGULATE: hybrid → jt=hybrid."""
+        f = SearchFilters(modalities=["hybrid"])
+        params = f.to_indeed_params()
+        assert params["jt"] == "hybrid"
+
+    def test_indeed_params_modality_multiple(self):
+        """TRIANGULATE: multiple mapped modalities joined by comma."""
+        f = SearchFilters(modalities=["remoto", "hibrido"])
+        params = f.to_indeed_params()
+        assert params["jt"] == "work-from-home,hybrid"
+
     def test_indeed_params_modality_unknown_skipped(self):
-        """TRIANGULATE: unknown modality should be skipped silently."""
-        f = SearchFilters(modalities=["hibrido", "desconocido"])
+        """TRIANGULATE: only unknown modalities → no jt param emitted."""
+        f = SearchFilters(modalities=["desconocido"])
         params = f.to_indeed_params()
         assert "jt" not in params
 

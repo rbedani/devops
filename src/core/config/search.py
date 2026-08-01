@@ -101,6 +101,8 @@ class SearchFilters:
         mod_map = {
             "remoto": "work-from-home",
             "remote": "work-from-home",
+            "hibrido": "hybrid",
+            "hybrid": "hybrid",
             "presencial": "on-site",
             "onsite": "on-site",
         }

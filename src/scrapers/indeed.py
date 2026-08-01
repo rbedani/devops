@@ -31,6 +31,7 @@ def _build_search_url(
     query: str = "",
     location: str = "",
     fromage: int | None = None,
+    jt: str | None = None,
     start: int = 0,
 ) -> str:
     """Build an Indeed search URL with query-string parameters."""
@@ -41,6 +42,8 @@ def _build_search_url(
         params["l"] = location
     if fromage is not None:
         params["fromage"] = str(fromage)
+    if jt is not None:
+        params["jt"] = jt
     if start > 0:
         params["start"] = str(start)
 
@@ -134,6 +137,11 @@ class IndeedScraper(BaseScraper):
             except (ValueError, TypeError):
                 fromage_val = None
 
+        # Resolve jt from extra_params or default to None
+        jt_val: str | None = None
+        if extra_params and "jt" in extra_params:
+            jt_val = extra_params["jt"]
+
         jobs: list[Job] = []
         seen_jks: set[str] = set()
         start = 0
@@ -143,6 +151,7 @@ class IndeedScraper(BaseScraper):
                 query=query,
                 location=location,
                 fromage=fromage_val,
+                jt=jt_val,
                 start=start,
             )
             logger.info("Indeed search page %d: %s", start // 10 + 1, url)
