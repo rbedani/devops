@@ -8,7 +8,9 @@ searches without touching code.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +160,35 @@ class SearchFilters:
         # If no modality tag, don't filter out
         return True
 
+    def matches_date_range(self, job: Any) -> bool:
+        """Check if the job's publication date falls within date_range.
+
+        Conservative by design: unknown ranges, missing tags, and unparseable
+        dates always pass — a job is never silently excluded on bad data.
+        Relative cutoffs (last_24h/last_week/last_month) are inclusive.
+        Custom ranges use "A:B" with inclusive bounds (naive UTC).
+        """
+        if not self.date_range:
+            return True
+        if self.date_range not in _DATE_RANGE_CUTOFFS and ":" not in self.date_range:
+            return True
+
+        now = datetime.now(UTC).replace(tzinfo=None)
+        parsed = _parse_fecha_publicacion(job.get_tag("fecha_publicacion") or "", now=now)
+        if parsed is None:
+            return True
+
+        if self.date_range in _DATE_RANGE_CUTOFFS:
+            return parsed >= now - _DATE_RANGE_CUTOFFS[self.date_range]
+
+        # Custom "A:B" range — inclusive bounds (naive UTC)
+        start_raw, _, end_raw = self.date_range.partition(":")
+        start = _parse_fecha_publicacion(start_raw.strip(), now=now)
+        end = _parse_fecha_publicacion(end_raw.strip(), now=now)
+        if start is None or end is None:
+            return True
+        return start <= parsed <= end
+
 
 # Modality synonym groups (mirrors _detect_modality in src/tags/detector.py).
 # Each group maps canonical filter terms to their synonym sets.
@@ -171,6 +202,88 @@ _MODALITY_SYNONYMS: dict[str, list[str]] = {
     "onsite": ["presencial", "on-site", "onsite", "in office", "en oficina"],
     "on-site": ["presencial", "on-site", "onsite", "in office", "en oficina"],
 }
+
+# Relative date-range cutoffs (inclusive: parsed == cutoff passes).
+_DATE_RANGE_CUTOFFS: dict[str, timedelta] = {
+    "last_24h": timedelta(hours=24),
+    "last_week": timedelta(days=7),
+    "last_month": timedelta(days=30),
+}
+
+_MONTHS: dict[str, int] = {
+    "ene": 1, "feb": 2, "mar": 3, "abr": 4, "may": 5, "jun": 6,
+    "jul": 7, "ago": 8, "sep": 9, "oct": 10, "nov": 11, "dic": 12,
+}
+
+_RELATIVE_RE = re.compile(r"^(?:hace\s+)?(\d+)\s*([dhm])\s*$")
+_NUMERIC_DATE_RE = re.compile(r"^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$")
+_MONTH_DATE_RE = re.compile(r"^(\d{1,2})\s+([a-záéíóúñ]+)$")
+
+_RELATIVE_DELTAS = {
+    "d": timedelta(days=1),
+    "h": timedelta(hours=1),
+    "m": timedelta(minutes=1),
+}
+
+
+def _parse_fecha_publicacion(value: str, now: datetime | None = None) -> datetime | None:
+    """Parse a publication-date string into a naive UTC datetime.
+
+    Formats tried in order:
+      - ISO 8601 ("2026-07-24T10:30:00Z", "2026-07-24") → naive UTC
+      - Relative Spanish ("Hace 2d", "5h", "30m") → now - delta
+      - Numeric ("24/07/2026", "24-07-2026") → midnight
+      - "D mon" ("5 jul") → midnight, year inferred from now (future → previous)
+
+    Returns None when the value cannot be parsed; callers treat that as
+    "no date filter applied" (conservative).
+    """
+    if now is None:
+        now = datetime.now(UTC).replace(tzinfo=None)
+    value = value.strip().lower()
+    if not value:
+        return None
+
+    # 1. ISO 8601 — Z means UTC; aware datetimes are converted to UTC
+    try:
+        parsed = datetime.fromisoformat(value.replace("z", "+00:00"))
+    except ValueError:
+        parsed = None
+    if parsed is not None:
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(UTC).replace(tzinfo=None)
+        return parsed
+
+    # 2. Relative "Hace Nd/Nh/Nm" or short "Nd/Nh/Nm"
+    m = _RELATIVE_RE.match(value)
+    if m:
+        amount = int(m.group(1))
+        return now - amount * _RELATIVE_DELTAS[m.group(2)]
+
+    # 3. Numeric DD/MM/YYYY or DD-MM-YYYY
+    m = _NUMERIC_DATE_RE.match(value)
+    if m:
+        try:
+            return datetime(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        except ValueError:
+            return None
+
+    # 4. "D mon" — Spanish month abbreviation, year inferred from now
+    m = _MONTH_DATE_RE.match(value)
+    if m:
+        day = int(m.group(1))
+        month = _MONTHS.get(m.group(2))
+        if month is None:
+            return None
+        year = now.year
+        if (month, day) > (now.month, now.day):
+            year -= 1
+        try:
+            return datetime(year, month, day)
+        except ValueError:
+            return None
+
+    return None
 
 
 @dataclass
