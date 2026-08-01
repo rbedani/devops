@@ -8,6 +8,7 @@ No module should use os.getcwd() or bare relative paths.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,7 +19,7 @@ HERE = Path(__file__).resolve().parent  # src/core/config/
 PROJECT_ROOT = HERE.parent.parent.parent  # project root
 
 # -- Application paths (centralized — no CWD-relative paths elsewhere) --------
-DB_PATH = PROJECT_ROOT / "jobs.db"
+DB_PATH = Path(os.environ.get("DB_PATH") or PROJECT_ROOT / "jobs.db")
 DATA_DIR = PROJECT_ROOT / "data"
 CV_DIR = DATA_DIR / "cv"
 TARGETS_PATH = PROJECT_ROOT / "config" / "targets.json"
