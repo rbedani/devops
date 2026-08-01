@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import subprocess
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -50,3 +52,57 @@ def server_url(db_path: Path) -> str:
     yield url
     proc.terminate()
     proc.wait()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _db_path_env(db_path: Path) -> Iterator[None]:
+    """Set DB_PATH env so server and scan subprocesses share the session tmp DB.
+
+    The server subprocess inherits the env var (runner.py copies os.environ
+    when spawning scan subprocesses), so settings.DB_PATH resolves to the
+    tmp DB at import time in every child process. Restored in finally so the
+    env is never left dirty, even if a fixture fails.
+    """
+    prev = os.environ.get("DB_PATH")
+    os.environ["DB_PATH"] = str(db_path)
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop("DB_PATH", None)
+        else:
+            os.environ["DB_PATH"] = prev
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _real_db_invariant() -> Iterator[dict[str, object]]:
+    """Assert the real jobs.db stays untouched across the e2e session.
+
+    Snapshots existence + row count before any server starts; teardown
+    (which runs after server teardown) asserts the real DB still matches.
+    If the real DB did not exist at session start, it must still not exist.
+    """
+    real = PROJECT_ROOT / "jobs.db"
+    if not real.exists():
+        baseline: dict[str, object] = {"exists": False, "count": None}
+    else:
+        conn = sqlite3.connect(str(real))
+        try:
+            baseline = {
+                "exists": True,
+                "count": conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0],
+            }
+        finally:
+            conn.close()
+    yield baseline
+    if not baseline["exists"]:
+        assert not real.exists(), "real jobs.db was created during the e2e session"
+    else:
+        conn = sqlite3.connect(str(real))
+        try:
+            count = conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+        finally:
+            conn.close()
+        assert count == baseline["count"], (
+            f"real jobs.db row count changed: {baseline['count']} -> {count}"
+        )
