@@ -102,8 +102,8 @@ async def _scrape_and_enrich(
         except Exception as e:
             logger.warning("Failed to enrich '%s': %s", job.title, e)
 
-        # Apply post-scrape modalidad filter
-        if target.filters.matches_job(job):
+        # Apply post-scrape modalidad + date-range filter
+        if target.filters.matches_job(job) and target.filters.matches_date_range(job):
             scraper.save_job(job)
             enriched.append(job)
 
