@@ -121,13 +121,14 @@ class IndeedScraper(BaseScraper):
         self,
         query: str,
         location: str = "",
-        max_results: int = 25,
+        max_results: int | None = None,
         extra_params: dict[str, str] | None = None,
     ) -> list[Job]:
         """Search Indeed and extract job listings with pagination.
 
         Paginates in steps of 10 (start=0,10,20...) until max_results
-        is reached or a page returns zero cards.
+        is reached or a page returns zero cards. max_results=None means
+        no cap (unlimited pagination until the site stops returning cards).
         """
         # Resolve fromage from extra_params or default to None
         fromage_val: int | None = None
@@ -146,7 +147,7 @@ class IndeedScraper(BaseScraper):
         seen_jks: set[str] = set()
         start = 0
 
-        while len(jobs) < max_results:
+        while max_results is None or len(jobs) < max_results:
             url = _build_search_url(
                 query=query,
                 location=location,
@@ -210,7 +211,7 @@ class IndeedScraper(BaseScraper):
                     page_jobs += 1
 
                 # Early exit on max_results
-                if len(jobs) >= max_results:
+                if max_results is not None and len(jobs) >= max_results:
                     break
 
             logger.info("Indeed page %d: %d new jobs (total %d)",
@@ -223,7 +224,7 @@ class IndeedScraper(BaseScraper):
 
         logger.info("Indeed scrape_search complete: %d jobs from %d pages",
                     len(jobs), start // 10 + 1)
-        return jobs[:max_results]
+        return jobs if max_results is None else jobs[:max_results]
 
     async def scrape_detail(self, url: str) -> Job:
         """Scrape the full detail page of an Indeed job listing.

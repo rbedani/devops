@@ -32,7 +32,6 @@ class ScraperConfig:
 
     headless: bool = True
     timeout_ms: int = 30_000
-    max_results: int = 25
     scroll_pause_ms: int = 1500
 
 

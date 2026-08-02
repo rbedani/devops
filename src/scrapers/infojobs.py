@@ -32,13 +32,14 @@ class InfoJobsScraper(BaseScraper):
         self,
         query: str,
         location: str = "",
-        max_results: int = 25,
+        max_results: int | None = None,
         extra_params: dict[str, str] | None = None,
     ) -> list[Job]:
         """Search InfoJobs and extract listings.
 
         extra_params: Additional search URL parameters (e.g. date range).
         These are merged into the search URL query string.
+        max_results=None means no cap.
         """
         params: dict[str, str] = {}
         if query:
@@ -71,7 +72,7 @@ class InfoJobsScraper(BaseScraper):
         )
         logger.info("Found %d job cards on InfoJobs", len(cards))
 
-        for card in cards[:max_results]:
+        for card in cards[:max_results] if max_results is not None else cards:
             try:
                 job = await self._parse_card(card)
                 if job:

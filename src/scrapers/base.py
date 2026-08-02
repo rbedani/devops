@@ -120,7 +120,7 @@ class BaseScraper(ABC):
         ...
 
     @abstractmethod
-    async def scrape_search(self, query: str, location: str = "", max_results: int = 25) -> list[Job]:  # noqa: E501
+    async def scrape_search(self, query: str, location: str = "", max_results: int | None = None) -> list[Job]:  # noqa: E501
         """Search for jobs and return a list of Job objects."""
         ...
 

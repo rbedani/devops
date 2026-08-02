@@ -152,13 +152,13 @@ class TecnoempleoScraper(BaseScraper):
         self,
         query: str,
         location: str = "",
-        max_results: int = 25,
+        max_results: int | None = None,
         extra_params: dict[str, str] | None = None,
     ) -> list[Job]:
         """Search Tecnoempleo and extract job listings with pagination.
 
         Paginates in steps of 30 (site default) until max_results is reached
-        or a page returns zero cards.
+        or a page returns zero cards. max_results=None means no cap.
         """
         # Resolve en_remoto from extra_params
         en_remoto: bool = False
@@ -169,7 +169,7 @@ class TecnoempleoScraper(BaseScraper):
         seen_urls: set[str] = set()
         page = 1
 
-        while len(jobs) < max_results:
+        while max_results is None or len(jobs) < max_results:
             url = _build_search_url(
                 query=query,
                 location=location,
@@ -238,7 +238,7 @@ class TecnoempleoScraper(BaseScraper):
                     page_jobs += 1
 
                 # Early exit on max_results
-                if len(jobs) >= max_results:
+                if max_results is not None and len(jobs) >= max_results:
                     break
 
             logger.info("Tecnoempleo page %d: %d new jobs (total %d)",
@@ -251,7 +251,7 @@ class TecnoempleoScraper(BaseScraper):
 
         logger.info("Tecnoempleo scrape_search complete: %d jobs from %d pages",
                     len(jobs), page)
-        return jobs[:max_results]
+        return jobs if max_results is None else jobs[:max_results]
 
     async def scrape_detail(self, url: str) -> Job:
         """Scrape the full detail page of a Tecnoempleo job listing.

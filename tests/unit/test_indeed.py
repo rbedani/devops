@@ -207,3 +207,84 @@ class TestIndeedScrapeSearchParams:
         assert len(calls) == 1
         assert calls[0]["jt"] is None
         assert calls[0]["fromage"] == 7
+
+
+class TestIndeedUnlimitedResults:
+    """D7 — max_results=None means no result cap (unlimited pagination).
+
+    The scraper signature defaults to max_results=None; callers in normal
+    mode (run_search.py) pass None explicitly so scans are not truncated
+    to the old default of 25. Explicit positive values still cap results.
+    """
+
+    class _FakeCard:
+        """Card stand-in with a data-jk and a title link (title extraction)."""
+
+        def __init__(self, index: int) -> None:
+            self._index = index
+
+        async def get_attribute(self, name: str):
+            if name == "data-jk":
+                return f"jk{self._index}"
+            return None
+
+        async def query_selector(self, selector: str):
+            if "title" in selector.lower() or "jobtitle" in selector.lower():
+                return self._FakeTitleLink(self._index)
+            return None
+
+        class _FakeTitleLink:
+            def __init__(self, index: int) -> None:
+                self._index = index
+
+            async def inner_text(self) -> str:
+                return f"DevOps Job {self._index}"
+
+    class _FakePage:
+        """Returns N valid cards on the first page, then zero (loop ends)."""
+
+        def __init__(self, card_count: int) -> None:
+            self._card_count = card_count
+            self._pages_seen = 0
+
+        async def goto(self, url, wait_until=None, timeout=None):
+            pass
+
+        async def query_selector_all(self, selector):
+            self._pages_seen += 1
+            if self._pages_seen == 1:
+                return [TestIndeedUnlimitedResults._FakeCard(i) for i in range(self._card_count)]
+            return []
+
+        async def inner_text(self, selector):
+            return ""
+
+    def _make_scraper(self, card_count: int):
+        scraper = IndeedScraper.__new__(IndeedScraper)  # skip __init__ (no DB/browser)
+        scraper._page = self._FakePage(card_count)
+        return scraper
+
+    def test_scrape_search_default_max_results_is_none(self):
+        """RED: the default for scrape_search max_results must be None (not 25)."""
+        import inspect
+
+        sig = inspect.signature(IndeedScraper.scrape_search)
+        assert sig.parameters["max_results"].default is None
+
+    @pytest.mark.asyncio
+    async def test_max_results_none_does_not_truncate_to_25(self):
+        """RED: max_results=None must return all 30 cards, not cap at 25."""
+        scraper = self._make_scraper(card_count=30)
+
+        jobs = await scraper.scrape_search(query="devops", max_results=None)
+
+        assert len(jobs) == 30, f"Expected 30 jobs with no cap, got {len(jobs)}"
+
+    @pytest.mark.asyncio
+    async def test_explicit_max_results_still_caps(self):
+        """TRIANGULATE: explicit max_results=5 still caps the results."""
+        scraper = self._make_scraper(card_count=30)
+
+        jobs = await scraper.scrape_search(query="devops", max_results=5)
+
+        assert len(jobs) == 5, f"Expected 5 jobs with explicit cap, got {len(jobs)}"
