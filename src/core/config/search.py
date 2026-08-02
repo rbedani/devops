@@ -189,6 +189,39 @@ class SearchFilters:
             return True
         return start <= parsed <= end
 
+    def matches_salary(self, job: Any) -> bool:
+        """Check if the job's salary falls within the requested range.
+
+        Inclusive bounds (D2): a job range [job_min, job_max] passes when
+        job_max >= filter_min AND job_min <= filter_max. Filter bounds are
+        normalised by _parse_salary (a single-value filter like "30k" acts
+        as both min and max). When the filter bounds are inverted
+        (min > max) BOTH are ignored and every job passes — the UI shows a
+        warning but the backend is authoritative (D5). Conservative by
+        design: jobs without a salary tag or with unparseable salary text
+        always pass (never silently excluded on bad data).
+        """
+        if not self.salary_min and not self.salary_max:
+            return True
+
+        min_bound = _parse_salary(self.salary_min)[0] if self.salary_min else None
+        max_bound = _parse_salary(self.salary_max)[0] if self.salary_max else None
+
+        # Inverted bounds → ignore both filters (D5)
+        if min_bound is not None and max_bound is not None and min_bound > max_bound:
+            return True
+
+        job_range = _parse_salary(job.get_tag("salario") or "")
+        if job_range is None:
+            return True
+
+        job_min, job_max = job_range
+        if min_bound is not None and job_max < min_bound:
+            return False
+        if max_bound is not None and job_min > max_bound:
+            return False
+        return True
+
 
 # Modality synonym groups (mirrors _detect_modality in src/tags/detector.py).
 # Each group maps canonical filter terms to their synonym sets.
@@ -284,6 +317,37 @@ def _parse_fecha_publicacion(value: str, now: datetime | None = None) -> datetim
             return None
 
     return None
+
+
+def _parse_salary(value: str) -> tuple[int, int] | None:
+    """Parse raw salary text into an inclusive (min, max) EUR tuple (D1).
+
+    Understands:
+      - k-suffix: "30k" → 30000 (treated as single value → (30000, 30000))
+      - plain number: "30000" → 30000
+      - ES thousand dots: "30.000" → 30000
+      - € suffix: "30000€" → 30000
+      - full range: "€36.000 - €42.000 b/a" → (36000, 42000)
+      - single value "30k" → (30000, 30000) — D2: min == max
+
+    Returns None when the text contains no numbers (no salary info).
+    """
+    if not value or not value.strip():
+        return None
+
+    # Normalise separators: unify dash variants, strip currency symbols
+    text = value.replace("–", "-").replace("—", "-").replace("€", "")
+    text = text.replace(".", "").replace(",", ".").lower().strip()
+
+    # k-suffix: multiply by 1000
+    if re.search(r"\d\s*k\b", text):
+        text = re.sub(r"(\d+(?:\.\d+)?)\s*k\b", lambda m: str(int(float(m.group(1)) * 1000)), text)
+
+    # Extract all numbers; the range bounds are min/max of them (inclusive)
+    numbers = [int(round(float(m))) for m in re.findall(r"\d+(?:\.\d+)?", text)]
+    if not numbers:
+        return None
+    return (min(numbers), max(numbers))
 
 
 @dataclass
