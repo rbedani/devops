@@ -2253,3 +2253,168 @@ class TestSortIntegration:
         assert "sort-state" in js or "getSortParam" in js
         assert "fb-sort-config" in js
         assert "localStorage" in js
+
+
+# =============================================================================
+# SCAN salary params — persistence round-trip (RED)
+# =============================================================================
+
+
+class TestScanSalaryPersistence:
+    """Salary bounds persist through /scan/config/save → scan_params.json.
+
+    The GET /scan/config route must render the saved salary_min/salary_max
+    back into the form inputs (round-trip contract).
+    """
+
+    def _params_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "scan_params.json"
+
+    def test_save_round_trips_salary_bounds(self, client, tmp_path: Path):
+        """RED: POST save with salary_min/max → _load_saved_params returns them."""
+        import src.scan.routes as scan_routes
+
+        params_file = self._params_path(tmp_path)
+        with patch.object(scan_routes, "SCAN_PARAMS_PATH", params_file):
+            response = client.post(
+                "/scan/config/save",
+                data={
+                    "q": "devops",
+                    "location": "Spain",
+                    "date_range": "last_week",
+                    "salary_min": "30000",
+                    "salary_max": "45000",
+                },
+            )
+            assert response.status_code == 200
+
+            saved = scan_routes._load_saved_params()
+            assert saved.get("salary_min") == "30000"
+            assert saved.get("salary_max") == "45000"
+
+    def test_get_scan_config_renders_saved_salary_values(self, client, tmp_path: Path):
+        """RED: GET /scan/config renders persisted salary bounds into inputs."""
+        import src.scan.routes as scan_routes
+
+        params_file = self._params_path(tmp_path)
+        with patch.object(scan_routes, "SCAN_PARAMS_PATH", params_file):
+            scan_routes._save_params({
+                "keywords": "devops",
+                "location": "Spain",
+                "modalities": [],
+                "date_range": "last_week",
+                "salary_min": "30000",
+                "salary_max": "45000",
+            })
+            response = client.get("/scan/config")
+            assert response.status_code == 200
+            assert 'name="salary_min"' in response.text
+            assert 'value="30000"' in response.text
+            assert 'name="salary_max"' in response.text
+            assert 'value="45000"' in response.text
+
+    def test_get_scan_config_defaults_salary_to_empty(self, client, tmp_path: Path):
+        """TRIANGULATE: without saved params, salary inputs render empty."""
+        import src.scan.routes as scan_routes
+
+        params_file = self._params_path(tmp_path)
+        with patch.object(scan_routes, "SCAN_PARAMS_PATH", params_file):
+            response = client.get("/scan/config")
+            assert response.status_code == 200
+            assert 'name="salary_min"' in response.text
+            assert 'value=""' in response.text
+            assert 'name="salary_max"' in response.text
+            assert 'value=""' in response.text
+
+
+class TestScanSalaryDeleteMatrix:
+    """D6 — delete-if-empty of scan_params.json.
+
+    The file is deleted ONLY when keywords ∧ salary_min ∧ salary_max are all
+    empty. location/modalities/date_range values never trigger deletion
+    (they do not count towards the delete condition).
+    """
+
+    def _save(self, tmp_path: Path, **data) -> Path:
+        import src.scan.routes as scan_routes
+
+        params_file = tmp_path / "scan_params.json"
+        with patch.object(scan_routes, "SCAN_PARAMS_PATH", params_file):
+            scan_routes._save_params(data)
+        return params_file
+
+    def test_deletes_when_all_key_fields_empty(self, tmp_path: Path):
+        """RED: keywords+salary_min+salary_max all empty → file deleted."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="", salary_max="",
+            location="", modalities=[], date_range="",
+        )
+        assert not params_file.exists()
+
+    def test_keeps_file_when_keywords_set(self, tmp_path: Path):
+        """RED: keywords non-empty → file kept."""
+        params_file = self._save(
+            tmp_path,
+            keywords="devops", salary_min="", salary_max="",
+            location="", modalities=[], date_range="",
+        )
+        assert params_file.exists()
+
+    def test_keeps_file_when_salary_min_set(self, tmp_path: Path):
+        """RED: salary_min non-empty → file kept."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="30000", salary_max="",
+            location="", modalities=[], date_range="",
+        )
+        assert params_file.exists()
+
+    def test_keeps_file_when_salary_max_set(self, tmp_path: Path):
+        """TRIANGULATE: salary_max non-empty → file kept."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="", salary_max="45000",
+            location="", modalities=[], date_range="",
+        )
+        assert params_file.exists()
+
+    def test_keeps_file_when_location_set(self, tmp_path: Path):
+        """TRIANGULATE (D6): location does not count → but non-empty means keep."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="", salary_max="",
+            location="Spain", modalities=[], date_range="",
+        )
+        assert params_file.exists()
+
+    def test_keeps_file_when_modalities_set(self, tmp_path: Path):
+        """TRIANGULATE (D6): modalities set → file kept."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="", salary_max="",
+            location="", modalities=["remote"], date_range="",
+        )
+        assert params_file.exists()
+
+    def test_keeps_file_when_date_range_set(self, tmp_path: Path):
+        """TRIANGULATE (D6): date_range set → file kept."""
+        params_file = self._save(
+            tmp_path,
+            keywords="", salary_min="", salary_max="",
+            location="", modalities=[], date_range="last_week",
+        )
+        assert params_file.exists()
+
+    def test_persisted_data_survives_save(self, tmp_path: Path):
+        """TRIANGULATE: saved values are readable back from disk."""
+        params_file = self._save(
+            tmp_path,
+            keywords="devops", salary_min="30000", salary_max="45000",
+            location="Spain", modalities=["remote"], date_range="last_week",
+        )
+        import json
+        data = json.loads(params_file.read_text())
+        assert data["salary_min"] == "30000"
+        assert data["salary_max"] == "45000"
+        assert data["keywords"] == "devops"

@@ -64,9 +64,23 @@ def _load_saved_params() -> dict:
     return {}
 
 
+def _value_is_empty(value) -> bool:
+    """True for empty string / empty list — used by the delete-if-empty check."""
+    if isinstance(value, (list, tuple)):
+        return len(value) == 0
+    return not str(value or "").strip()
+
+
 def _save_params(data: dict) -> None:
-    """Save scan params to JSON file. Delete file if keywords is empty (restore defaults)."""
-    if not data.get("keywords", "").strip():
+    """Save scan params to JSON file.
+
+    Delete-if-empty (D6): the file is removed (restore defaults) only when
+    keywords, salary_min, salary_max, location, modalities, and date_range
+    are ALL empty — a scan with no parameters at all restores defaults.
+    location/modalities/date_range set never trigger deletion by themselves.
+    """
+    keys = ("keywords", "salary_min", "salary_max", "location", "modalities", "date_range")
+    if all(_value_is_empty(data.get(k)) for k in keys):
         SCAN_PARAMS_PATH.unlink(missing_ok=True)
         return
     SCAN_PARAMS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -92,6 +106,8 @@ async def scan_config(request: Request) -> HTMLResponse:
     location = saved.get("location", "")
     modalities: list[str] = saved.get("modalities", [])
     date_range = saved.get("date_range", "")
+    salary_min = saved.get("salary_min", "")
+    salary_max = saved.get("salary_max", "")
 
     if not keyword:
         # Fallback: read from targets.json
@@ -108,6 +124,10 @@ async def scan_config(request: Request) -> HTMLResponse:
                     modalities = [m.lower() for m in targets[0].filters.modalities]
                 if not date_range:
                     date_range = targets[0].filters.date_range
+                if not salary_min:
+                    salary_min = targets[0].filters.salary_min
+                if not salary_max:
+                    salary_max = targets[0].filters.salary_max
         except Exception:
             pass
 
@@ -121,6 +141,8 @@ async def scan_config(request: Request) -> HTMLResponse:
             "location": location,
             "modalities": modalities,
             "date_range": date_range,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
         },
     )
 
@@ -132,6 +154,8 @@ async def scan_config_save(
     location: str = Form(""),
     modality: list[str] = Form([]),  # noqa: B008
     date_range: str = Form(""),
+    salary_min: str = Form(""),
+    salary_max: str = Form(""),
 ) -> HTMLResponse:
     """Save scan parameters to persistent storage."""
     _save_params({
@@ -139,6 +163,8 @@ async def scan_config_save(
         "location": location,
         "modalities": modality,
         "date_range": date_range,
+        "salary_min": salary_min,
+        "salary_max": salary_max,
     })
     return HTMLResponse("""<div class="save-toast">✓ Saved</div>""")
 
@@ -150,16 +176,21 @@ async def trigger_scan(
     location: str = Query(""),
     modality: list[str] = Query([]),  # noqa: B008
     date_range: str = Query(""),
+    salary_min: str = Query(""),
+    salary_max: str = Query(""),
     debug_mode: str = Query(""),
 ) -> HTMLResponse:
     """Trigger an async scan and return progress partial.
 
     If a scan is already running, returns the current progress without
     starting a new one. debug_mode=on limits results to 3 per scraper.
-    The q param is passed as SCAN_KEYWORD to the subprocess for post-scrape
-    title/company filtering.
+    The q param is passed as SCAN_KEYWORD to the subprocess: it overrides the
+    target's configured keywords for the search query and applies a post-scrape
+    any-match filter on title/company. Empty q = no keyword filter.
     The location, modality, and date_range params are passed as env vars
     to the subprocess for search configuration.
+    The salary_min/salary_max params are passed as SCAN_SALARY_MIN/MAX env
+    vars — presence-based; empty = no salary filter.
     Enabled platforms are read from the database (single source of truth).
     """
     if not scan_state.running:
@@ -189,6 +220,8 @@ async def trigger_scan(
             location=location,
             modality=modality,
             date_range=date_range,
+            salary_min=salary_min,
+            salary_max=salary_max,
         ))
 
     return templates.TemplateResponse(

@@ -3,7 +3,7 @@
     <div class="scan-topbar" id="scan-topbar">
         <button class="btn btn-scan" id="scan-btn"
                 hx-get="/scan"
-                hx-include="#scan-keywords, #scan-location, #scan-debug, [name='modality']:checked, #scan-date-range"
+                hx-include="#scan-keywords, #scan-location, #scan-debug, [name='modality']:checked, #scan-date-range, #scan-salary-min, #scan-salary-max"
                 hx-target="#scan-progress-section"
                 hx-swap="innerHTML">
             ▶ RUN SCAN
@@ -82,10 +82,23 @@
                         <option value="last_month" {% if date_range == 'last_month' %}selected{% endif %}>Last month</option>
                     </select>
                 </div>
+                <div class="form-row scan-salary-row">
+                    <label for="scan-salary-min">Salary Min (€)</label>
+                    <input type="number" id="scan-salary-min" name="salary_min"
+                           placeholder="e.g. 30000" min="0" step="1000"
+                           value="{{ salary_min or '' }}">
+                </div>
+                <div class="form-row scan-salary-row">
+                    <label for="scan-salary-max">Salary Max (€)</label>
+                    <input type="number" id="scan-salary-max" name="salary_max"
+                           placeholder="e.g. 45000" min="0" step="1000"
+                           value="{{ salary_max or '' }}">
+                </div>
+                <div id="scan-salary-warning" class="scan-salary-warning" style="display:none"></div>
                 <div class="form-row save-row">
                     <button class="btn btn-save"
                             hx-post="/scan/config/save"
-                            hx-include="#scan-keywords, #scan-location, [name='modality']:checked, #scan-date-range"
+                            hx-include="#scan-keywords, #scan-location, [name='modality']:checked, #scan-date-range, #scan-salary-min, #scan-salary-max"
                             hx-target="#save-toast-container"
                             hx-swap="innerHTML">
                         💾 SAVE
@@ -95,6 +108,29 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Inline salary validation (D5): warns when min > max, never blocks submit
+        (function () {
+            var min = document.getElementById('scan-salary-min');
+            var max = document.getElementById('scan-salary-max');
+            var warn = document.getElementById('scan-salary-warning');
+            if (!min || !max || !warn) return;
+            function check() {
+                var lo = min.value ? Number(min.value) : NaN;
+                var hi = max.value ? Number(max.value) : NaN;
+                if (!isNaN(lo) && !isNaN(hi) && lo > hi) {
+                    warn.textContent = '⚠ Min > Max: only jobs matching both bounds will be kept.';
+                    warn.style.display = 'block';
+                } else {
+                    warn.textContent = '';
+                    warn.style.display = 'none';
+                }
+            }
+            min.addEventListener('input', check);
+            max.addEventListener('input', check);
+        })();
+    </script>
 
     <!-- PROGRESS + DINO -->
     <div id="scan-progress-section"
