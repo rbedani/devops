@@ -45,9 +45,17 @@ def seed_platforms(db_path: Path) -> None:
 
 def _ensure_scan_tab(page, server_url: str) -> None:
     page.goto(f"{server_url}/")
-    page.wait_for_timeout(1000)
+    page.wait_for_selector("button[data-tab='scan']", timeout=15000)
     page.click("button[data-tab='scan']")
-    page.wait_for_timeout(1000)
+    # Wait for the async hx-get=/scan/config SWAP to actually complete
+    # (htmx-request class leaves after the swap). Without this, a slow CI
+    # renderer replaces the freshly-filled form with the saved-values form
+    # (flaky: submits "cleared" instead of the typed salary bounds).
+    page.wait_for_function(
+        "!document.querySelector('.htmx-request') && "
+        "document.querySelector('#scan-salary-min') !== null",
+        timeout=15000,
+    )
     # Open collapsible settings panel so form elements are interactable
     page.click("#settings-toggle")
     page.wait_for_timeout(500)
