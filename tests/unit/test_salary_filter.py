@@ -138,6 +138,39 @@ class TestMatchesSalary:
             _job_with_salary("Competitive")
         )
 
+    def test_unparseable_min_filter_passes(self) -> None:
+        """RED: unparseable FILTER min (e.g. 'Competitive') → bound ignored.
+
+        Regression: _parse_salary('Competitive') is None and the old code
+        crashed with TypeError (None[0]). The filter bound must be treated
+        like the job side: unparseable = no restriction.
+        """
+        assert self._filters(salary_min="Competitive").matches_salary(
+            _job_with_salary("36.000 - 42.000 b/a")
+        )
+
+    def test_unparseable_max_filter_passes(self) -> None:
+        """RED: unparseable FILTER max → bound ignored, no crash."""
+        assert self._filters(salary_max="Competitive").matches_salary(
+            _job_with_salary("36.000 - 42.000 b/a")
+        )
+
+    def test_unparseable_both_filters_pass(self) -> None:
+        """TRIANGULATE: both filter bounds unparseable → passes, no crash."""
+        assert self._filters(
+            salary_min="Competitive", salary_max="Negotiable"
+        ).matches_salary(_job_with_salary("36.000 - 42.000 b/a"))
+
+    def test_unparseable_min_does_not_filter_low_job(self) -> None:
+        """TRIANGULATE: unparseable min must NOT act as zero/negative bound.
+
+        A low job (20k) with an unparseable min filter must still pass —
+        the bound is ignored, not treated as 0.
+        """
+        assert self._filters(salary_min="Competitive").matches_salary(
+            _job_with_salary("20k")
+        )
+
     def test_min_boundary_inclusive(self) -> None:
         """TRIANGULATE (D2): job at exactly min → passes (inclusive)."""
         assert self._filters(salary_min="30000").matches_salary(_job_with_salary("30k"))

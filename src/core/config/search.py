@@ -26,7 +26,6 @@ class SearchFilters:
     salary_min: str = ""
     salary_max: str = ""
     exclude_keywords: list[str] = field(default_factory=list)
-    language: str = ""            # e.g. "es", "en"
 
     def to_linkedin_params(self) -> dict[str, str]:
         """Convert filters to LinkedIn search URL parameters."""
@@ -204,8 +203,12 @@ class SearchFilters:
         if not self.salary_min and not self.salary_max:
             return True
 
-        min_bound = _parse_salary(self.salary_min)[0] if self.salary_min else None
-        max_bound = _parse_salary(self.salary_max)[0] if self.salary_max else None
+        min_range = _parse_salary(self.salary_min) if self.salary_min else None
+        max_range = _parse_salary(self.salary_max) if self.salary_max else None
+        # Unparseable filter bound → no restriction (same rule as the job
+        # side): the bound is ignored, never crashes and never filters.
+        min_bound: int | None = min_range[0] if min_range is not None else None
+        max_bound: int | None = max_range[0] if max_range is not None else None
 
         # Inverted bounds → ignore both filters (D5)
         if min_bound is not None and max_bound is not None and min_bound > max_bound:
@@ -218,9 +221,7 @@ class SearchFilters:
         job_min, job_max = job_range
         if min_bound is not None and job_max < min_bound:
             return False
-        if max_bound is not None and job_min > max_bound:
-            return False
-        return True
+        return not (max_bound is not None and job_min > max_bound)
 
 
 # Modality synonym groups (mirrors _detect_modality in src/tags/detector.py).
