@@ -99,8 +99,9 @@ async def run_scan(
 
     Subprocess command: sys.executable -m scripts.run_search
     When debug=True, sets DEBUG_MODE=3 to limit results per scraper.
-    When keyword is non-empty, sets SCAN_KEYWORD env var so the subprocess
-    can apply a post-scrape title/company filter.
+    Always sets SCAN_KEYWORD env var (presence = keyword override for the
+    subprocess; empty string = "no keyword filter"). The value is sanitized
+    for shell safety and truncated to 200 chars before the comma split.
     Always sets SCAN_SALARY_MIN and SCAN_SALARY_MAX (presence-based: empty
     string = "no salary filter"; raw values travel to the parser, which is
     the single normaliser).
@@ -129,8 +130,9 @@ async def run_scan(
             env["PYTHONIOENCODING"] = "utf-8"   # prevent espa�a on Windows
             if debug:
                 env["DEBUG_MODE"] = "3"
-            if keyword:
-                env["SCAN_KEYWORD"] = sanitize_keyword(keyword)
+            # Always set SCAN_KEYWORD — presence means "override", empty
+            # string means "no keyword filter" (clears config default).
+            env["SCAN_KEYWORD"] = sanitize_keyword(keyword)
             # Always set location, modality, and date_range —
             # empty string means "no filter" (override config default)
             env["SCAN_LOCATION"] = location

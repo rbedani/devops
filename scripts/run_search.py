@@ -10,6 +10,7 @@ import sys
 
 from src.core.config.settings import TARGETS_PATH, DB_PATH
 from src.core.config.search import SearchTarget, load_targets
+from src.scan.overrides import apply_env_overrides, matches_any_keyword, split_keywords
 from src.scrapers.linkedin import LinkedInScraper
 from src.scrapers.infojobs import InfoJobsScraper
 from src.scrapers.indeed import IndeedScraper
@@ -150,20 +151,9 @@ async def run_target(
         print(f"PROGRESS:{target.name}:{overall}%", flush=True)
 
     # Apply env var overrides to target filters BEFORE logging/building params
+    # (keywords, date_range, location, modality — presence-based; empty = no filter)
     if env_overrides:
-        if "date_range" in env_overrides:
-            target.filters.date_range = env_overrides["date_range"]
-        if "location" in env_overrides:
-            # Split comma-separated locations into a proper list
-            # "Spain, Argentina, Madrid" -> ["Spain", "Argentina", "Madrid"]
-            locations = [loc.strip() for loc in env_overrides["location"].split(",") if loc.strip()]
-            target.filters.countries = locations if locations else []
-        if "modality" in env_overrides:
-            # Empty string = explicit "no filter" (clear modalities)
-            if env_overrides["modality"]:
-                target.filters.modalities = env_overrides["modality"].split(",")
-            else:
-                target.filters.modalities = []
+        apply_env_overrides(target, env_overrides)
 
     # Resolve locations list (already split if from override, or from config)
     locations = [loc.strip() for loc in target.filters.countries if loc.strip()]
@@ -316,6 +306,18 @@ async def main():
         else:
             logger.info("SCAN_MODALITY override: cleared (no modality filter)")
 
+    # Keywords — always check presence, not truthiness.
+    # Empty string means "user cleared keywords" (override config default).
+    # The raw value keeps commas/accents (sanitized earlier in runner.py);
+    # the split into a keyword list happens in apply_env_overrides.
+    if "SCAN_KEYWORD" in os.environ:
+        scan_keywords = os.environ["SCAN_KEYWORD"].strip()
+        env_overrides["keywords"] = scan_keywords  # may be empty
+        if scan_keywords:
+            logger.info("SCAN_KEYWORD override: %s", scan_keywords)
+        else:
+            logger.info("SCAN_KEYWORD override: cleared (no keyword filter)")
+
     # Salary — always check presence, not truthiness.
     # Empty string means "user cleared the salary filter" (override config
     # default). Raw values travel untouched; the parser in search.py is the
@@ -354,17 +356,19 @@ async def main():
         all_jobs.extend(jobs)
         completed += 1
 
-    # Post-scrape keyword filter (from SCAN_KEYWORD env var)
-    scan_keyword = os.environ.get("SCAN_KEYWORD", "").strip()
-    if scan_keyword:
-        kw_lower = scan_keyword.lower()
+    # Post-scrape keyword filter (from SCAN_KEYWORD env var).
+    # Presence-based: when the var is absent, no filter is applied (legacy
+    # behavior — SCAN-KW-07). When present, the effective keyword list is
+    # split from the raw value and any-match filtered on title/company.
+    if "SCAN_KEYWORD" in os.environ:
+        effective_keywords = split_keywords(os.environ["SCAN_KEYWORD"])
         before = len(all_jobs)
         all_jobs = [
             job for job in all_jobs
-            if kw_lower in job.title.lower() or kw_lower in (job.company or "").lower()
+            if matches_any_keyword(job, effective_keywords)
         ]
         after = len(all_jobs)
-        logger.info("SCAN_KEYWORD filter '%s': %d → %d jobs", scan_keyword, before, after)
+        logger.info("SCAN_KEYWORD filter %s: %d → %d jobs", effective_keywords, before, after)
 
     # Summary
     print(f"\n{'=' * 70}")

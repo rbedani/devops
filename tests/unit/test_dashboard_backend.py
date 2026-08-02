@@ -257,8 +257,12 @@ class TestScanKeyword:
         assert env.get("SCAN_KEYWORD") == "DevOps Engineer"
 
     @pytest.mark.asyncio
-    async def test_skips_env_var_when_keyword_empty(self):
-        """RED: run_scan should NOT set SCAN_KEYWORD when keyword is empty string."""
+    async def test_sets_empty_keyword_env_var_when_keyword_empty(self):
+        """RED (SCAN-KW-02): SCAN_KEYWORD is always set; empty string = no filter.
+
+        Presence means "user provided a keyword override"; empty value means
+        "no keyword filter" (clears the target's configured keywords).
+        """
         from src.scan.runner import ScanState, run_scan
 
         state = ScanState()
@@ -275,8 +279,10 @@ class TestScanKeyword:
 
         _, kwargs = mock_subproc.call_args
         env = kwargs.get("env", {})
-        # SCAN_KEYWORD should not be in env, or be empty
-        assert "SCAN_KEYWORD" not in env or env["SCAN_KEYWORD"] == ""
+        # SCAN_KEYWORD is ALWAYS set by run_scan: presence = override,
+        # empty string = "no keyword filter"
+        assert "SCAN_KEYWORD" in env
+        assert env["SCAN_KEYWORD"] == ""
 
     @pytest.mark.asyncio
     async def test_sanitized_keyword_passed_to_env(self):
