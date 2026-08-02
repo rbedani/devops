@@ -301,6 +301,99 @@ class TestScanKeyword:
         # The dangerous ; should be stripped
         assert ";" not in kw
 
+    @pytest.mark.asyncio
+    async def test_sanitize_preserves_commas_and_accents(self):
+        """TRIANGULATE (SCAN-KW-03): commas and accents survive sanitize for split.
+
+        Border: sanitize_keyword truncates to 200 chars BEFORE run_search
+        splits on commas — a >200-char input loses the tail keywords.
+        """
+        from src.scan.runner import ScanState, run_scan
+
+        state = ScanState()
+        mock_process = AsyncMock()
+        mock_process.stdout = AsyncMock()
+        mock_process.stdout.__aiter__.return_value = iter([
+            b"TOTAL: 5 jobs across 1 targets\n",
+        ])
+        mock_process.wait = AsyncMock(return_value=0)
+        mock_process.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=mock_process),
+        ) as mock_subproc:
+            await run_scan(state, keyword="devops,sre, administración")
+
+        _, kwargs = mock_subproc.call_args
+        env = kwargs.get("env", {})
+        assert env.get("SCAN_KEYWORD") == "devops,sre, administración"
+
+
+class TestScanSalaryEnv:
+    """SCAN-SAL-03/04 — salary bounds reach the subprocess via env vars.
+
+    run_scan ALWAYS sets SCAN_SALARY_MIN and SCAN_SALARY_MAX: presence means
+    "user provided a salary override", empty string means "no salary filter"
+    (D4, presence-based contract). The raw values travel untouched — the
+    parser in run_search.py is the single normaliser.
+    """
+
+    @pytest.mark.asyncio
+    async def test_sets_salary_min_and_max_env_vars(self):
+        """RED: run_scan should set SCAN_SALARY_MIN/MAX when values provided."""
+        from src.scan.runner import ScanState, run_scan
+
+        state = ScanState()
+        mock_process = AsyncMock()
+        mock_process.stdout = AsyncMock()
+        mock_process.stdout.__aiter__.return_value = iter([
+            b"TOTAL: 5 jobs across 1 targets\n",
+        ])
+        mock_process.wait = AsyncMock(return_value=0)
+        mock_process.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=mock_process),
+        ) as mock_subproc:
+            await run_scan(state, salary_min="30000", salary_max="45000")
+
+        _, kwargs = mock_subproc.call_args
+        env = kwargs.get("env", {})
+        assert env.get("SCAN_SALARY_MIN") == "30000"
+        assert env.get("SCAN_SALARY_MAX") == "45000"
+
+    @pytest.mark.asyncio
+    async def test_sets_empty_salary_env_vars_when_empty(self):
+        """RED (SCAN-SAL-04): SCAN_SALARY_MIN/MAX always set; empty = no filter.
+
+        Pattern: test_sets_empty_keyword_env_var_when_keyword_empty.
+        """
+        from src.scan.runner import ScanState, run_scan
+
+        state = ScanState()
+        mock_process = AsyncMock()
+        mock_process.stdout = AsyncMock()
+        mock_process.stdout.__aiter__.return_value = iter([
+            b"TOTAL: 5 jobs across 1 targets\n",
+        ])
+        mock_process.wait = AsyncMock(return_value=0)
+        mock_process.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec",
+            new=AsyncMock(return_value=mock_process),
+        ) as mock_subproc:
+            await run_scan(state, salary_min="", salary_max="")
+
+        _, kwargs = mock_subproc.call_args
+        env = kwargs.get("env", {})
+        assert "SCAN_SALARY_MIN" in env
+        assert env["SCAN_SALARY_MIN"] == ""
+        assert "SCAN_SALARY_MAX" in env
+        assert env["SCAN_SALARY_MAX"] == ""
+
 
 # =============================================================================
 # Task 1.8 — Threat matrix: keyword sanitization

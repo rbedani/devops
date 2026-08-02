@@ -53,7 +53,7 @@ async def _scrape_and_enrich(
         jobs = await scraper.scrape_search(
             query=base_params.get("keywords", base_params.get("keyword", "")),
             location=location,
-            max_results=target.max_results,
+            max_results=target.max_results if max_jobs is not None else None,
             extra_params=extra_params,
         )
 
@@ -102,8 +102,12 @@ async def _scrape_and_enrich(
         except Exception as e:
             logger.warning("Failed to enrich '%s': %s", job.title, e)
 
-        # Apply post-scrape modalidad + date-range filter
-        if target.filters.matches_job(job) and target.filters.matches_date_range(job):
+        # Apply post-scrape modalidad + date-range + salary filter
+        if (
+            target.filters.matches_job(job)
+            and target.filters.matches_date_range(job)
+            and target.filters.matches_salary(job)
+        ):
             scraper.save_job(job)
             enriched.append(job)
 
@@ -311,6 +315,27 @@ async def main():
             logger.info("SCAN_MODALITY override: %s", scan_modality)
         else:
             logger.info("SCAN_MODALITY override: cleared (no modality filter)")
+
+    # Salary — always check presence, not truthiness.
+    # Empty string means "user cleared the salary filter" (override config
+    # default). Raw values travel untouched; the parser in search.py is the
+    # single normaliser. Inverted bounds (min > max) are handled by
+    # matches_salary, which ignores both (UI shows the warning instead).
+    if "SCAN_SALARY_MIN" in os.environ:
+        scan_salary_min = os.environ["SCAN_SALARY_MIN"].strip()
+        env_overrides["salary_min"] = scan_salary_min  # may be empty
+        if scan_salary_min:
+            logger.info("SCAN_SALARY_MIN override: %s", scan_salary_min)
+        else:
+            logger.info("SCAN_SALARY_MIN override: cleared (no min salary filter)")
+
+    if "SCAN_SALARY_MAX" in os.environ:
+        scan_salary_max = os.environ["SCAN_SALARY_MAX"].strip()
+        env_overrides["salary_max"] = scan_salary_max  # may be empty
+        if scan_salary_max:
+            logger.info("SCAN_SALARY_MAX override: %s", scan_salary_max)
+        else:
+            logger.info("SCAN_SALARY_MAX override: cleared (no max salary filter)")
 
     for i, target in enumerate(enabled):
         remaining = None

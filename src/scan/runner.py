@@ -88,6 +88,8 @@ async def run_scan(
     location: str = "",
     modality: list[str] | None = None,
     date_range: str = "",
+    salary_min: str = "",
+    salary_max: str = "",
 ) -> None:
     """Launch run_search.py as subprocess once per platform and parse stdout for progress.
 
@@ -99,6 +101,9 @@ async def run_scan(
     When debug=True, sets DEBUG_MODE=3 to limit results per scraper.
     When keyword is non-empty, sets SCAN_KEYWORD env var so the subprocess
     can apply a post-scrape title/company filter.
+    Always sets SCAN_SALARY_MIN and SCAN_SALARY_MAX (presence-based: empty
+    string = "no salary filter"; raw values travel to the parser, which is
+    the single normaliser).
     When location is non-empty, sets SCAN_LOCATION env var for search geo.
     When modality is non-empty, sets SCAN_MODALITY env var for work type.
     When date_range is non-empty, sets SCAN_DATE_RANGE env var for time filter.
@@ -131,6 +136,10 @@ async def run_scan(
             env["SCAN_LOCATION"] = location
             env["SCAN_MODALITY"] = ",".join(modality) if modality else ""
             env["SCAN_DATE_RANGE"] = date_range
+            # Always set salary bounds — presence means "override", empty
+            # string means "no salary filter" (clears config default)
+            env["SCAN_SALARY_MIN"] = salary_min
+            env["SCAN_SALARY_MAX"] = salary_max
 
             proc = await asyncio.create_subprocess_exec(
                 sys.executable,
