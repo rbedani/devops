@@ -10,10 +10,41 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+import requests
 
 HERE = Path(__file__).resolve().parent
 PROJECT_ROOT = HERE.parent.parent
 WRAPPER = HERE / "run_server.py"
+
+
+@pytest.fixture(scope="function", autouse=True)
+def _scan_server_idle(server_url: str) -> Iterator[None]:
+    """Ensure the session-scoped scan server is idle BEFORE and AFTER each test.
+
+    Tests that fire #scan-btn but only validate the outgoing request (location,
+    date_range, modality, platforms, dino) do not wait for the background scan
+    to finish. The server is session-scoped, so a leftover running scan makes
+    the NEXT test's trigger_scan a no-op (running=True), which renders stale
+    log lines from the previous test instead of the new scan's output. This
+    fixture stops any residual scan between tests so every test starts from a
+    clean idle server.
+    """
+    _stop_running_scan(server_url)
+    yield
+    _stop_running_scan(server_url)
+
+
+def _stop_running_scan(server_url: str) -> None:
+    """Best-effort: cancel a running scan and wait until the server reports idle retry."""
+    try:
+        requests.get(f"{server_url}/scan/status-check", timeout=5)
+        # A running scan shows up as an active progress partial; use the stop
+        # endpoint unconditionally — it is a no-op when idle.
+        requests.get(f"{server_url}/scan/stop", timeout=5)
+        time.sleep(1)
+    except requests.RequestException:
+        # Server may not be up yet in the pre-yield (first test) call.
+        pass
 
 
 @pytest.fixture(scope="session")
