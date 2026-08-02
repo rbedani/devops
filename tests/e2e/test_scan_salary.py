@@ -61,15 +61,17 @@ def _ensure_scan_tab(page, server_url: str) -> None:
     page.wait_for_timeout(500)
 
 
-def _run_scan_and_wait(page, salary_min: str, salary_max: str, timeout_ms: int = 240000) -> None:
+def _run_scan_and_wait(page, salary_min: str, salary_max: str, expect_log: str, timeout_ms: int = 240000) -> None:
     """Fill salary bounds, enable debug, run scan, and wait until it finishes.
 
     The scan button is disabled while running and re-enabled by showDone()
     once the SSE emits the final event.
 
-    Intercepts the /scan request to capture the exact query params the button
-    serialized — the log can be rendered from server-rendered saved params,
-    but the request shows what the DOM really submitted.
+    Waits for the log to contain the EXPECTED value token, not any
+    'SCAN_SALARY_MIN' line: the tab is re-fetched to render the full log,
+    and stale log lines from earlier tests in the session also contain
+    'SCAN_SALARY_MIN' — waiting for the generic marker returns before the
+    fresh render is ready.
     """
     min_input = page.query_selector("#scan-salary-min")
     max_input = page.query_selector("#scan-salary-max")
@@ -99,10 +101,10 @@ def _run_scan_and_wait(page, salary_min: str, salary_max: str, timeout_ms: int =
     )
 
     # Re-fetch /scan/config to render the FULL log (SSE only streams the
-    # last line per tick)
+    # last line per tick), then wait for THIS scan's expected value.
     page.click("button[data-tab='scan']")
     page.wait_for_function(
-        "document.getElementById('scan-log').textContent.includes('SCAN_SALARY_MIN')",
+        f"document.getElementById('scan-log').textContent.includes({expect_log!r})",
         timeout=15000,
     )
 
@@ -122,7 +124,7 @@ class TestScanSalaryUI:
             page = browser.new_page()
 
             _ensure_scan_tab(page, server_url)
-            _run_scan_and_wait(page, "30000", "45000")
+            _run_scan_and_wait(page, "30000", "45000", "SCAN_SALARY_MIN override: 30000")
 
             log_text = page.text_content("#scan-log")
             assert log_text is not None, "No se encontro #scan-log en el DOM"
@@ -153,7 +155,7 @@ class TestScanSalaryUI:
             page = browser.new_page()
 
             _ensure_scan_tab(page, server_url)
-            _run_scan_and_wait(page, "", "")
+            _run_scan_and_wait(page, "", "", "SCAN_SALARY_MIN override: cleared")
 
             log_text = page.text_content("#scan-log")
             assert log_text is not None, "No se encontro #scan-log en el DOM"
