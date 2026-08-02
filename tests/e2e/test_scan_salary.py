@@ -66,6 +66,10 @@ def _run_scan_and_wait(page, salary_min: str, salary_max: str, timeout_ms: int =
 
     The scan button is disabled while running and re-enabled by showDone()
     once the SSE emits the final event.
+
+    Intercepts the /scan request to capture the exact query params the button
+    serialized — the log can be rendered from server-rendered saved params,
+    but the request shows what the DOM really submitted.
     """
     min_input = page.query_selector("#scan-salary-min")
     max_input = page.query_selector("#scan-salary-max")
@@ -73,6 +77,8 @@ def _run_scan_and_wait(page, salary_min: str, salary_max: str, timeout_ms: int =
     max_input.fill(salary_max)
     page.check("#scan-debug")
 
+    captured: list[str] = []
+    page.on("request", lambda req: captured.append(req.url) if "/scan?" in req.url else None)
     page.click("#scan-btn")
     # Scan started → button disabled
     page.wait_for_function(
@@ -84,6 +90,14 @@ def _run_scan_and_wait(page, salary_min: str, salary_max: str, timeout_ms: int =
         "document.querySelector('.btn-scan').disabled === false",
         timeout=timeout_ms,
     )
+
+    run_url = next((u for u in captured if "/scan?" in u), "<no /scan request captured>")
+    print(f"  RUN URL: {run_url}")
+    expected = f"salary_min={salary_min}" if salary_min else "salary_min="
+    assert expected in run_url, (
+        f"El submit no mando salary_min={salary_min!r}. Request: {run_url}"
+    )
+
     # Re-fetch /scan/config to render the FULL log (SSE only streams the
     # last line per tick)
     page.click("button[data-tab='scan']")
