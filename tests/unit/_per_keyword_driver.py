@@ -19,6 +19,11 @@ Target shape is env-driven:
   TARGET_DATE_RANGE    (e.g. last_24h → native f_TPR filter)
   DEBUG_MODE           (optional; per-keyword debug cap path)
   SHARED_URLS=1        → every query returns the SAME URL set (cross-keyword dedup)
+  WALK_BLOCK_QUERY     (D6) query that simulates a mid-walk block: it returns
+                       only WALK_BLOCK_COUNT partial results (the cards
+                       collected before the block), proving the scan keeps
+                       partials and continues with the next keyword
+  WALK_BLOCK_COUNT     (default 2) partial results returned for the blocked query
 """
 
 from __future__ import annotations
@@ -43,6 +48,13 @@ def build_fake_scraper(shared: bool) -> tuple[type, list[dict]]:
     """Return a FakeScraper class + the list where it records scrape_search calls."""
 
     calls: list[dict] = []
+
+    # D6 — WALK_BLOCK_QUERY simulates a mid-walk block for one keyword: that
+    # query returns only WALK_BLOCK_COUNT partial results (cards collected
+    # before the block). The scan must keep them and continue with the next
+    # keyword instead of crashing or dropping the partials.
+    walk_block_query = os.environ.get("WALK_BLOCK_QUERY", "")
+    walk_block_count = int(os.environ.get("WALK_BLOCK_COUNT", "2"))
 
     class FakeScraper:
         def __init__(self, db, headless: bool = True) -> None:  # noqa: ANN001
@@ -69,7 +81,12 @@ def build_fake_scraper(shared: bool) -> tuple[type, list[dict]]:
                     "extra_params": extra_params,
                 }
             )
-            count = OFFERS_PER_QUERY if max_results is None else min(max_results, OFFERS_PER_QUERY)
+            if walk_block_query and query == walk_block_query:
+                count = walk_block_count
+            elif max_results is None:
+                count = OFFERS_PER_QUERY
+            else:
+                count = min(max_results, OFFERS_PER_QUERY)
             stem = "shared" if shared else (query or "any")
             return [
                 Job(

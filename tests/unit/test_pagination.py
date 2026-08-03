@@ -563,3 +563,29 @@ class TestTecnoempleoWalkVerification:
 # ---------------------------------------------------------------------------
 
 
+class TestMidWalkFailureAtRunLevel:
+    """D6 — a blocked keyword walk must not lose its partial results nor stop
+    the scan: the next keyword still runs (subprocess driver, real main())."""
+
+    def test_blocked_keyword_keeps_partial_and_next_continues(self, tmp_path: Path) -> None:
+        """RED (spec 'Block mid-walk' + D6): kw1 partial kept, kw2 still runs."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path,
+            TARGET_KEYWORDS="devops,sre",
+            WALK_BLOCK_QUERY="devops",
+            WALK_BLOCK_COUNT="2",
+        )
+        assert [c["query"] for c in report["calls"]] == ["devops", "sre"]
+        # 2 partial offers from the blocked keyword + 5 from the next one
+        assert report["total_unique"] == 7
+
+    def test_infojobs_date_never_reaches_url_layer(self, tmp_path: Path) -> None:
+        """RED (spec 'Non-native filter stays post-scrape'): no date extra_param."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path,
+            TARGET_PLATFORM="infojobs",
+            TARGET_KEYWORDS="devops",
+            TARGET_DATE_RANGE="last_24h",
+        )
+        assert len(report["calls"]) == 1
+        assert report["calls"][0]["extra_params"] == {}
