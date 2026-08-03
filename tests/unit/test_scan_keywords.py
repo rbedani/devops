@@ -523,3 +523,45 @@ class TestPerKeywordLoop:
         assert [c["query"] for c in report["calls"]] == ["devops", "sre"]
 
 
+class TestDebugCap:
+    """D2 — PER_KEYWORD_DEBUG_CAP semantics (scripts/run_search.py).
+
+    Debug mode caps results per keyword at 3; production is uncapped;
+    targets.json max_results is dormant (kept, not enforced); the global
+    max_jobs stop still applies in debug.
+    """
+
+    def test_debug_caps_three_per_keyword(self, tmp_path: Path) -> None:
+        """RED (spec 'Debug caps per keyword'): 2 kw × 5 offers → ≤6 unique."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", DEBUG_MODE="99"
+        )
+        assert report["total_unique"] == 6
+        for call in report["calls"]:
+            assert call["max_results"] == 3
+
+    def test_production_uncapped(self, tmp_path: Path) -> None:
+        """RED (spec 'Production collects all'): no DEBUG_MODE → all 10 collected."""
+        report, _ = _run_per_keyword_driver(tmp_path, TARGET_KEYWORDS="devops,sre")
+        assert report["total_unique"] == 10
+        for call in report["calls"]:
+            assert call["max_results"] is None
+
+    def test_targets_max_results_dormant(self, tmp_path: Path) -> None:
+        """RED (D2): targets.json max_results=25 must NOT be enforced."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path,
+            TARGET_KEYWORDS="devops,sre",
+            TARGET_MAX_RESULTS="25",
+            DEBUG_MODE="99",
+        )
+        assert report["total_unique"] == 6  # 3/kw cap wins over max_results=25
+        for call in report["calls"]:
+            assert call["max_results"] == 3
+
+    def test_global_max_jobs_stop_coexists(self, tmp_path: Path) -> None:
+        """TRIANGULATE (D2): DEBUG_MODE=3 global stop still truncates to 3 total."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", DEBUG_MODE="3"
+        )
+        assert report["total_unique"] == 3

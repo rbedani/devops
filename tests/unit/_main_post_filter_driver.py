@@ -35,7 +35,8 @@ DESC_ONLY_JOB = Job(
 
 
 async def fake_run_target(
-    target, db, target_index=0, total_targets=1, max_jobs=None, env_overrides=None
+    target, db, target_index=0, total_targets=1, max_jobs=None, env_overrides=None,
+    max_per_keyword=None,
 ):
     """Return the same description-only job for every target call."""
     return [DESC_ONLY_JOB]

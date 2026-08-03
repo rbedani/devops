@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 CONFIG_PATH = TARGETS_PATH
 
+# D2 — per-keyword result cap used ONLY in debug mode. targets.json
+# max_results is dormant (kept in the schema, NOT enforced — see the
+# SearchTarget docstring in src/core/config/search.py).
+PER_KEYWORD_DEBUG_CAP = 3
+
 
 def _keyword_passes(keywords: list[str]) -> list[str | None]:
     """Deduplicate keywords preserving first-seen order (spec: duplicate collapse).
@@ -68,6 +73,7 @@ async def _scrape_and_enrich(
     extra_params: dict[str, str],
     max_jobs: int | None,
     emit_progress,
+    max_per_keyword: int | None = None,
 ) -> list:
     """Shared search + dedup + enrich logic for all platforms.
 
@@ -77,6 +83,9 @@ async def _scrape_and_enrich(
     (extra_params) are applied to every keyword query unchanged. Each
     job is enriched with its detail page, post-scrape filters applied,
     and saved.
+
+    max_per_keyword caps each keyword query (D2): 3 in debug mode, None in
+    production (uncapped). targets.json max_results is dormant — NOT used.
     """
     all_jobs: list = []
     seen_urls: set[str] = set()
@@ -102,7 +111,7 @@ async def _scrape_and_enrich(
             jobs = await scraper.scrape_search(
                 query=kw_params.get("keywords", kw_params.get("keyword", "")),
                 location=location,
-                max_results=target.max_results if max_jobs is not None else None,
+                max_results=max_per_keyword,
                 extra_params=extra_params,
             )
 
@@ -184,6 +193,7 @@ async def run_target(
     total_targets: int = 1,
     max_jobs: int | None = None,
     env_overrides: dict[str, str] | None = None,
+    max_per_keyword: int | None = None,
 ) -> list:
     """Execute a single search target and return jobs found.
 
@@ -193,6 +203,9 @@ async def run_target(
 
     When max_jobs is set, stops early once that many jobs are enriched,
     used in debug mode to stop the scan after 3 total results.
+
+    max_per_keyword caps each keyword query (D2): PER_KEYWORD_DEBUG_CAP (3)
+    in debug mode, None in production — targets.json max_results is dormant.
 
     When env_overrides is provided, the target's filters are overridden
     before building LinkedIn search params (used for SCAN_DATE_RANGE,
@@ -232,7 +245,7 @@ async def run_target(
             }
             enriched = await _scrape_and_enrich(
                 scraper, target, locations, base_params, extra_params,
-                max_jobs, emit_progress,
+                max_jobs, emit_progress, max_per_keyword,
             )
             logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
                         target.name, len(enriched), len(locations))
@@ -247,7 +260,7 @@ async def run_target(
             }
             enriched = await _scrape_and_enrich(
                 scraper, target, locations, base_params, extra_params,
-                max_jobs, emit_progress,
+                max_jobs, emit_progress, max_per_keyword,
             )
             logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
                         target.name, len(enriched), len(locations))
@@ -268,7 +281,7 @@ async def run_target(
             compat_params["keyword"] = indeed_query
             enriched = await _scrape_and_enrich(
                 scraper, target, locations, compat_params, extra_params,
-                max_jobs, emit_progress,
+                max_jobs, emit_progress, max_per_keyword,
             )
             logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
                         target.name, len(enriched), len(locations))
@@ -283,7 +296,7 @@ async def run_target(
             }
             enriched = await _scrape_and_enrich(
                 scraper, target, locations, base_params, extra_params,
-                max_jobs, emit_progress,
+                max_jobs, emit_progress, max_per_keyword,
             )
             logger.info("Target '%s': %d jobs passed filters (searched %d locations)",
                         target.name, len(enriched), len(locations))
@@ -324,6 +337,11 @@ async def main():
             debug_limit = None
     else:
         debug_limit = None
+
+    # D2 — per-keyword result cap: PER_KEYWORD_DEBUG_CAP in debug mode,
+    # None (uncapped) in production. targets.json max_results is dormant
+    # (schema kept, NOT enforced — see SearchTarget docstring).
+    max_per_keyword = PER_KEYWORD_DEBUG_CAP if debug_mode else None
 
     # Build env var overrides for dashboard SCAN parameters.
     # These override the target's config filters when the dashboard
@@ -406,6 +424,7 @@ async def main():
             target_index=i, total_targets=total,
             max_jobs=remaining,
             env_overrides=env_overrides if env_overrides else None,
+            max_per_keyword=max_per_keyword,
         )
         all_jobs.extend(jobs)
         completed += 1

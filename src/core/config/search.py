@@ -353,7 +353,14 @@ def _parse_salary(value: str) -> tuple[int, int] | None:
 
 @dataclass
 class SearchTarget:
-    """A complete search definition: platform + filters + limits."""
+    """A complete search definition: platform + filters + limits.
+
+    NOTE (D2, keyword-per-keyword): ``max_results`` is DORMANT — it stays
+    in the schema for config/targets.json backwards compatibility but is
+    NOT enforced at scan time. Result limits apply only in debug mode via
+    ``PER_KEYWORD_DEBUG_CAP`` (scripts/run_search.py, 3 per keyword);
+    production scans are uncapped.
+    """
 
     name: str                              # human label e.g. "devops_españa"
     platform: str                          # e.g. "linkedin", "indeed", "computrabajo"
