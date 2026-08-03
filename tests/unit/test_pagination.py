@@ -14,10 +14,49 @@ Covers all four platform walks:
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from playwright.async_api import TimeoutError as PwTimeout
 
+from src.scrapers.indeed import IndeedScraper
+from src.scrapers.infojobs import INFOJOBS_SEARCH_URL, InfoJobsScraper
 from src.scrapers.linkedin import LINKEDIN_JOBS_URL, LinkedInScraper
+from src.scrapers.tecnoempleo import TecnoempleoScraper
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PER_KEYWORD_DRIVER = PROJECT_ROOT / "tests" / "unit" / "_per_keyword_driver.py"
+
+
+def _run_per_keyword_driver(
+    tmp_path: Path, *, mode: str = "main", **env: str
+) -> tuple[dict, str]:
+    """Run the per-keyword subprocess driver and return (report dict, stdout)."""
+    report = tmp_path / "report.json"
+    driver_env = os.environ.copy()
+    driver_env.update(
+        {
+            "DB_PATH": str(tmp_path / "jobs.db"),
+            "REPORT_PATH": str(report),
+            "DRIVER_MODE": mode,
+            **env,
+        }
+    )
+    proc = subprocess.run(
+        [sys.executable, str(PER_KEYWORD_DRIVER)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=PROJECT_ROOT,
+        env=driver_env,
+    )
+    assert proc.returncode == 0, f"driver failed: {proc.stderr[-2000:]}"
+    return json.loads(report.read_text(encoding="utf-8")), proc.stdout
+
 
 # ---------------------------------------------------------------------------
 # Fake Playwright page/card stand-ins (walk simulation)
@@ -48,6 +87,93 @@ class _FakeLinkedInTitle:
     async def get_attribute(self, name: str):
         if name == "href":
             return f"https://www.linkedin.com/jobs/view/{self._page_no}-{self._index}?trk=x"
+        return None
+
+
+class _FakeInfoJobsCard:
+    """InfoJobs card stand-in: a title link (parse requires it) only."""
+
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def query_selector(self, selector: str):
+        if "description-title" in selector:
+            return _FakeInfoJobsTitle(self._page_no, self._index)
+        return None
+
+
+class _FakeInfoJobsTitle:
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def inner_text(self) -> str:
+        return f"DevOps Engineer {self._page_no}-{self._index}"
+
+    async def get_attribute(self, name: str):
+        if name == "href":
+            return f"/jobsearch/offer/{self._page_no}-{self._index}"
+        return None
+
+
+class _FakeIndeedCard:
+    """Indeed card stand-in: data-jk + a title link (extractor requires them)."""
+
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def get_attribute(self, name: str):
+        if name == "data-jk":
+            return f"jk{self._page_no}-{self._index}"
+        return None
+
+    async def query_selector(self, selector: str):
+        if "title" in selector.lower() or "jobtitle" in selector.lower():
+            return _FakeIndeedTitle(self._page_no, self._index)
+        return None
+
+
+class _FakeIndeedTitle:
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def inner_text(self) -> str:
+        return f"DevOps Job {self._page_no}-{self._index}"
+
+
+class _FakeTecnoempleoCard:
+    """Tecnoempleo card stand-in: onclick-less, h3 a link with title+url."""
+
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def get_attribute(self, name: str):
+        return None
+
+    async def query_selector(self, selector: str):
+        if "h3" in selector or "font-weight-bold" in selector:
+            return _FakeTecnoempleoLink(self._page_no, self._index)
+        return None
+
+    async def query_selector_all(self, selector: str):
+        return []
+
+
+class _FakeTecnoempleoLink:
+    def __init__(self, page_no: int, index: int) -> None:
+        self._page_no = page_no
+        self._index = index
+
+    async def inner_text(self) -> str:
+        return f"DevOps {self._page_no}-{self._index}"
+
+    async def get_attribute(self, name: str):
+        if name == "href":
+            return f"https://www.tecnoempleo.com/ofertas/{self._page_no}-{self._index}"
         return None
 
 
@@ -160,6 +286,52 @@ class TestLinkedInUrlBuilder:
 # ---------------------------------------------------------------------------
 
 
+class TestInfoJobsUrlBuilder:
+    """D5 — InfoJobs pagination URL: page=N from page 2 onward."""
+
+    def test_build_search_url_minimal(self) -> None:
+        """RED: keyword + city params on the InfoJobs search URL."""
+        url = InfoJobsScraper.build_search_url(query="devops", location="Madrid")
+        assert url.startswith(INFOJOBS_SEARCH_URL)
+        assert "keyword=devops" in url
+        assert "city=Madrid" in url
+
+    def test_build_search_url_page_1_no_page_param(self) -> None:
+        """RED: page 1 must NOT add a page param."""
+        url = InfoJobsScraper.build_search_url(query="devops")
+        assert "page=" not in url
+
+    def test_build_search_url_page_2(self) -> None:
+        """RED (D5): page 2 → page=2."""
+        url = InfoJobsScraper.build_search_url(query="devops", page=2)
+        assert "page=2" in url
+
+    def test_build_search_url_page_3(self) -> None:
+        """TRIANGULATE (D5): page 3 → page=3."""
+        url = InfoJobsScraper.build_search_url(query="devops", page=3)
+        assert "page=3" in url
+
+    def test_build_search_url_no_date_param(self) -> None:
+        """RED (spec 'Non-native filter stays post-scrape'): NO date param."""
+        url = InfoJobsScraper.build_search_url(query="devops", page=2)
+        assert "date" not in url
+        assert "f_TPR" not in url
+        assert "fromage" not in url
+
+    def test_build_search_url_extra_params_merged(self) -> None:
+        """TRIANGULATE: native extra_params merge into the page URL."""
+        url = InfoJobsScraper.build_search_url(
+            query="devops", extra_params={"city": "Madrid"}, page=2
+        )
+        assert "city=Madrid" in url
+        assert "page=2" in url
+
+
+# ---------------------------------------------------------------------------
+# LinkedIn walk (D5/D6)
+# ---------------------------------------------------------------------------
+
+
 class TestLinkedInWalk:
     """D5/D6 — LinkedIn walks start=25*(page-1) to the last page (0 new cards)."""
 
@@ -226,6 +398,168 @@ class TestLinkedInWalk:
 
 # ---------------------------------------------------------------------------
 # InfoJobs walk (D5/D6)
+# ---------------------------------------------------------------------------
+
+
+class TestInfoJobsWalk:
+    """D5/D6 — InfoJobs walks page=N to the last page (0 new cards)."""
+
+    async def _walk(self, page: _WalkFakePage, monkeypatch, max_results=None):
+        monkeypatch.setattr("random.uniform", lambda a, b: 0.0)
+        scraper = _make_walk_scraper(InfoJobsScraper, page)
+        return await scraper.scrape_search(query="devops", max_results=max_results)
+
+    @pytest.mark.asyncio
+    async def test_walk_to_last_page_collects_all_pages(self, monkeypatch) -> None:
+        """RED (spec 'Walk to last page in production'): 3 pages of 10 → 30 jobs."""
+        page = _WalkFakePage([10, 10, 10, 0], card_factory=_FakeInfoJobsCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 30
+        assert len(page.urls) == 4  # page 4 is the 0-card last-page probe
+        assert "page=" not in page.urls[0]   # page 1: no page param
+        assert "page=2" in page.urls[1]
+        assert "page=3" in page.urls[2]
+        assert "page=4" in page.urls[3]      # detection probe only
+        assert "page=5" not in page.urls     # no deeper page probed
+
+    @pytest.mark.asyncio
+    async def test_single_page_result_stops(self, monkeypatch) -> None:
+        """RED (spec 'Single-page result'): 6 offers → stop after page 1."""
+        page = _WalkFakePage([6, 0], card_factory=_FakeInfoJobsCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 6
+        assert len(page.urls) == 2
+
+    @pytest.mark.asyncio
+    async def test_block_mid_walk_keeps_collected_cards(self, monkeypatch) -> None:
+        """RED (spec 'Block mid-walk'): page 2 blocked → page 1 kept (10 jobs)."""
+        page = _WalkFakePage([10, 10], fail_on_probe=2, card_factory=_FakeInfoJobsCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 10
+        assert len(page.urls) == 2
+
+    @pytest.mark.asyncio
+    async def test_max_results_caps_walk(self, monkeypatch) -> None:
+        """TRIANGULATE (D2): max_results=3 stops the walk at 3 jobs."""
+        page = _WalkFakePage([10, 10], card_factory=_FakeInfoJobsCard)
+        jobs = await self._walk(page, monkeypatch, max_results=3)
+
+        assert len(jobs) == 3
+        assert len(page.urls) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_date_param_on_any_page_url(self, monkeypatch) -> None:
+        """RED (spec 'Non-native filter stays post-scrape'): no date in URLs."""
+        page = _WalkFakePage([10, 10, 0], card_factory=_FakeInfoJobsCard)
+        await self._walk(page, monkeypatch)
+
+        assert len(page.urls) == 3
+        for url in page.urls:
+            assert "date" not in url
+            assert "f_TPR" not in url
+            assert "fromage" not in url
+
+
+# ---------------------------------------------------------------------------
+# Indeed walk verification (approval — production code NOT changed)
+# ---------------------------------------------------------------------------
+
+
+class TestIndeedWalkVerification:
+    """D5/D6 — approval tests: the existing Indeed walk keeps its contract."""
+
+    async def _walk(self, page: _WalkFakePage, monkeypatch, max_results=None):
+        monkeypatch.setattr("random.uniform", lambda a, b: 0.0)
+        scraper = _make_walk_scraper(IndeedScraper, page)
+        return await scraper.scrape_search(query="devops", max_results=max_results)
+
+    @pytest.mark.asyncio
+    async def test_walk_to_last_page_stops_at_zero_cards(self, monkeypatch) -> None:
+        """RED (D5 Indeed row): start=0,10,20,30 then stop at 0-card page."""
+        page = _WalkFakePage([10, 10, 10, 10, 0], card_factory=_FakeIndeedCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 40
+        assert len(page.urls) == 5
+        assert "start=0" in page.urls[0] or "start=" not in page.urls[0]
+        assert "start=10" in page.urls[1]
+        assert "start=20" in page.urls[2]
+        assert "start=30" in page.urls[3]
+        assert "start=40" in page.urls[4]  # detection probe only
+        assert "start=50" not in page.urls
+
+    @pytest.mark.asyncio
+    async def test_single_page_result_stops(self, monkeypatch) -> None:
+        """RED (spec 'Single-page result'): 6 offers → stop after page 1."""
+        page = _WalkFakePage([6, 0], card_factory=_FakeIndeedCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 6
+        assert len(page.urls) == 2
+
+    @pytest.mark.asyncio
+    async def test_block_mid_walk_keeps_collected_cards(self, monkeypatch) -> None:
+        """RED (spec 'Block mid-walk'): page 3 blocked → pages 1-2 kept."""
+        page = _WalkFakePage([10, 10, 10], fail_on_probe=3, card_factory=_FakeIndeedCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 20
+        assert len(page.urls) == 3
+
+
+# ---------------------------------------------------------------------------
+# Tecnoempleo walk verification (approval — production code NOT changed)
+# ---------------------------------------------------------------------------
+
+
+class TestTecnoempleoWalkVerification:
+    """D5/D6 — approval tests: the existing Tecnoempleo walk keeps its contract."""
+
+    async def _walk(self, page: _WalkFakePage, monkeypatch, max_results=None):
+        monkeypatch.setattr("random.uniform", lambda a, b: 0.0)
+        scraper = _make_walk_scraper(TecnoempleoScraper, page)
+        return await scraper.scrape_search(query="devops", max_results=max_results)
+
+    @pytest.mark.asyncio
+    async def test_walk_to_last_page_stops_at_zero_cards(self, monkeypatch) -> None:
+        """RED (D5 Tecnoempleo row): pagina=1,2,3 then stop at 0-card page."""
+        page = _WalkFakePage([30, 30, 30, 0], card_factory=_FakeTecnoempleoCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 90
+        assert len(page.urls) == 4
+        assert "pagina=" not in page.urls[0]   # page 1: no pagina param
+        assert "pagina=2" in page.urls[1]
+        assert "pagina=3" in page.urls[2]
+        assert "pagina=4" in page.urls[3]      # detection probe only
+        assert "pagina=5" not in page.urls
+
+    @pytest.mark.asyncio
+    async def test_single_page_result_stops(self, monkeypatch) -> None:
+        """RED (spec 'Single-page result'): 6 offers → stop after page 1."""
+        page = _WalkFakePage([6, 0], card_factory=_FakeTecnoempleoCard)
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 6
+        assert len(page.urls) == 2
+
+    @pytest.mark.asyncio
+    async def test_block_mid_walk_keeps_collected_cards(self, monkeypatch) -> None:
+        """RED (spec 'Block mid-walk'): block title on page 2 → page 1 kept."""
+        page = _WalkFakePage(
+            [30, 30], block_title_on_probe=2, card_factory=_FakeTecnoempleoCard
+        )
+        jobs = await self._walk(page, monkeypatch)
+
+        assert len(jobs) == 30
+        assert len(page.urls) == 2
+
+
+# ---------------------------------------------------------------------------
+# Run-level D6: keep partial, warn, continue next keyword
 # ---------------------------------------------------------------------------
 
 
