@@ -2,20 +2,35 @@
 
 Covers:
 - split_keywords (SCAN-KW-03): comma split, whitespace strip, empty parts dropped
-- matches_any_keyword (SCAN-KW-04): any-match title/company, case-insensitive
+- matches_any_keyword (SCAN-KW-04): any-match title/company/description,
+  case-insensitive, token-aware (delegates to src/scan/matcher.py)
 - apply_env_overrides (SCAN-KW-01/02/06): presence overrides, empty clears,
   coexists with location/modality, unknown keys ignored
 """
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from src.core.config.search import SearchFilters, SearchTarget
 from src.core.models.job import Job
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+MAIN_POST_FILTER_DRIVER = PROJECT_ROOT / "tests" / "unit" / "_main_post_filter_driver.py"
 
-def _job(title: str, company: str = "") -> Job:
+
+def _job(title: str, company: str = "", description: str = "") -> Job:
     """Build a minimal Job for keyword filter tests."""
-    return Job(source="test", title=title, url=f"https://example.com/{title}", company=company)
+    return Job(
+        source="test",
+        title=title,
+        url=f"https://example.com/{title}",
+        company=company,
+        description=description,
+    )
 
 
 class TestSplitKeywords:
@@ -63,7 +78,12 @@ class TestSplitKeywords:
 
 
 class TestMatchesAnyKeyword:
-    """SCAN-KW-04 — post-scrape keyword filter (any-match, case-insensitive)."""
+    """SCAN-KW-04 — post-scrape keyword filter (any-match, case-insensitive).
+
+    Delegates to the token-aware relevance matcher (src/scan/matcher.py):
+    matching now spans title + company + description per spec
+    (job-relevance-matcher), with synonyms and contiguous-phrase rules.
+    """
 
     def test_matches_title(self) -> None:
         """RED: keyword in job title should match."""
@@ -100,6 +120,70 @@ class TestMatchesAnyKeyword:
         from src.scan.overrides import matches_any_keyword
 
         assert matches_any_keyword(_job("Backend Engineer", "Acme"), [])
+
+    def test_matches_description_only(self) -> None:
+        """RED (spec 'Keyword only in description'): desc-only match passes.
+
+        Contract change: the SCAN keyword gate now spans title + company +
+        description via the relevance matcher, so a job whose keyword appears
+        only in the enriched description must pass.
+        """
+        from src.scan.overrides import matches_any_keyword
+
+        assert matches_any_keyword(
+            _job("Platform Engineer", "Acme", "We need terraform for our infra"),
+            ["terraform"],
+        )
+
+    def test_empty_description_with_no_match_is_filtered(self) -> None:
+        """TRIANGULATE (spec 'Empty description'): empty desc + no t/c match -> out."""
+        from src.scan.overrides import matches_any_keyword
+
+        assert not matches_any_keyword(
+            _job("Backend Engineer", "Acme", ""),
+            ["terraform"],
+        )
+
+    def test_synonym_matches_through_delegation(self) -> None:
+        """TRIANGULATE (spec 'Synonym match passes'): k8s matches 'kubernetes'."""
+        from src.scan.overrides import matches_any_keyword
+
+        assert matches_any_keyword(
+            _job("Platform Engineer", "Acme", "k8s administration"),
+            ["kubernetes"],
+        )
+
+
+class TestMainPostFilter:
+    """D4 — main() SCAN_KEYWORD post-filter must use the new relevance matcher.
+
+    Runs scripts.run_search.main() in a subprocess (the module swaps
+    sys.stdout at import time, so in-process import breaks pytest capture).
+    The driver patches run_target to return a description-only match and
+    deliberately breaks the legacy matcher: if main() still routed the
+    post-filter through matches_any_keyword, the job would be dropped and
+    its title would never appear in the output table.
+    """
+
+    def test_desc_only_job_survives_post_filter(self, tmp_path: Path) -> None:
+        """RED (D4 CRITICAL): desc-only job keeps after SCAN_KEYWORD filter."""
+        env = os.environ.copy()
+        env["DB_PATH"] = str(tmp_path / "jobs.db")
+        env["SCAN_KEYWORD"] = "terraform"
+
+        proc = subprocess.run(
+            [sys.executable, str(MAIN_POST_FILTER_DRIVER)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=PROJECT_ROOT,
+            env=env,
+        )
+        assert proc.returncode == 0, f"driver failed: {proc.stderr[-2000:]}"
+        assert "Platform SRE Engineer" in proc.stdout, (
+            "description-only job was dropped by the SCAN_KEYWORD post-filter; "
+            "main() must use the new relevance matcher (D4)"
+        )
 
 
 class TestApplyEnvOverrides:

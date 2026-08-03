@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from src.core.config.search import SearchTarget
 from src.core.models.job import Job
+from src.scan.matcher import matches_relevance
 
 
 def split_keywords(raw: str) -> list[str]:
@@ -54,13 +55,11 @@ def apply_env_overrides(target: SearchTarget, env_overrides: dict[str, str]) -> 
 
 
 def matches_any_keyword(job: Job, keywords: list[str]) -> bool:
-    """Return True when any keyword matches the job title or company.
+    """Return True when any keyword matches the job title, company or description.
 
-    Case-insensitive substring match on title and company. An empty keyword
-    list matches everything (no keyword filter).
+    Thin delegation to the token-aware relevance matcher (matcher.py) so the
+    SCAN keyword gate and the dashboard share one implementation (spec:
+    job-relevance-matcher). Matching is case-insensitive, token-aware and
+    synonym-expanded; an empty keyword list matches everything (no filter).
     """
-    if not keywords:
-        return True
-    title = (job.title or "").lower()
-    company = (job.company or "").lower()
-    return any(k.lower() in title or k.lower() in company for k in keywords)
+    return matches_relevance(job, keywords)

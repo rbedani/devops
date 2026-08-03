@@ -10,7 +10,8 @@ import sys
 
 from src.core.config.settings import TARGETS_PATH, DB_PATH
 from src.core.config.search import SearchTarget, load_targets
-from src.scan.overrides import apply_env_overrides, matches_any_keyword, split_keywords
+from src.scan.matcher import matches_relevance
+from src.scan.overrides import apply_env_overrides, split_keywords
 from src.scrapers.linkedin import LinkedInScraper
 from src.scrapers.infojobs import InfoJobsScraper
 from src.scrapers.indeed import IndeedScraper
@@ -359,13 +360,15 @@ async def main():
     # Post-scrape keyword filter (from SCAN_KEYWORD env var).
     # Presence-based: when the var is absent, no filter is applied (legacy
     # behavior — SCAN-KW-07). When present, the effective keyword list is
-    # split from the raw value and any-match filtered on title/company.
+    # split from the raw value and any-match filtered on title, company and
+    # description via the token-aware relevance matcher (D4 — must not use
+    # the legacy title/company gate or description-only matches are lost).
     if "SCAN_KEYWORD" in os.environ:
         effective_keywords = split_keywords(os.environ["SCAN_KEYWORD"])
         before = len(all_jobs)
         all_jobs = [
             job for job in all_jobs
-            if matches_any_keyword(job, effective_keywords)
+            if matches_relevance(job, effective_keywords)
         ]
         after = len(all_jobs)
         logger.info("SCAN_KEYWORD filter %s: %d → %d jobs", effective_keywords, before, after)
