@@ -6,7 +6,9 @@ and auto-detect metadata tags.  No API key required — works via browser.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 from urllib.parse import urlencode
 
 from playwright.async_api import TimeoutError as PwTimeout
@@ -18,11 +20,41 @@ logger = logging.getLogger(__name__)
 
 LINKEDIN_JOBS_URL = "https://www.linkedin.com/jobs/search/"
 
+# D5 — LinkedIn paginates with a start offset in steps of 25 (page 1 = start 0).
+LINKEDIN_PAGE_SIZE = 25
+
+
+def _build_search_url(
+    query: str = "",
+    location: str = "",
+    extra_params: dict[str, str] | None = None,
+    start: int = 0,
+) -> str:
+    """Build a LinkedIn Jobs search URL with query-string parameters.
+
+    Pagination uses the start offset: page N → start=25*(N-1); start=0 adds
+    no parameter (page 1). extra_params (native filters like f_TPR/f_WT) are
+    merged into EVERY page URL unchanged (spec: native filter application).
+    """
+    params: dict[str, str] = {}
+    if query:
+        params["keywords"] = query
+    if location:
+        params["location"] = location
+    if extra_params:
+        params.update(extra_params)
+    if start > 0:
+        params["start"] = str(start)
+    return f"{LINKEDIN_JOBS_URL}?{urlencode(params)}"
+
 
 class LinkedInScraper(BaseScraper):
     """Scrape job listings from LinkedIn Jobs."""
 
     SOURCE = "linkedin"
+
+    # Static URL builder exposed for unit testing
+    build_search_url = staticmethod(_build_search_url)
 
     async def login(self, credentials: dict[str, str]) -> None:
         """Login to LinkedIn with email/password."""
@@ -46,46 +78,84 @@ class LinkedInScraper(BaseScraper):
         max_results: int | None = None,
         extra_params: dict[str, str] | None = None,
     ) -> list[Job]:
-        """Search LinkedIn Jobs and extract listings.
+        """Search LinkedIn Jobs and extract listings with pagination (D5/D6).
 
-        extra_params: Additional LinkedIn search URL parameters
-        (e.g. f_TPR=r604800 for last week, f_WT=2 for remote).
-        These are merged into the search URL query string.
-        max_results=None means no cap.
+        Walks result pages in steps of 25 (start=25*(page-1)) until
+        max_results is reached or a page yields zero new cards (last-page
+        detection). extra_params (f_TPR, f_WT, ...) are merged into every
+        page URL. A mid-walk timeout/block stops the walk, keeps the cards
+        already collected, logs a warning, and returns them. max_results=None
+        means no cap (production walk to the last page).
         """
-        params = {"keywords": query}
-        if location:
-            params["location"] = location
-        if extra_params:
-            params.update(extra_params)
-
-        url = f"{LINKEDIN_JOBS_URL}?{urlencode(params)}"
-        logger.info("Navigating to: %s", url)
-
-        try:
-            await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
-        except PwTimeout:
-            logger.warning("Timeout loading search page: %s", url)
-            return []
-
-        await self.page.wait_for_timeout(3000)  # let JS render
-
         jobs: list[Job] = []
+        seen_urls: set[str] = set()
+        page = 1
 
-        # LinkedIn renders job cards in a list container
-        cards = await self.page.query_selector_all(".base-card, .job-search-card")
-        logger.info("Found %d job cards", len(cards))
+        while max_results is None or len(jobs) < max_results:
+            url = _build_search_url(
+                query=query,
+                location=location,
+                extra_params=extra_params,
+                start=(page - 1) * LINKEDIN_PAGE_SIZE,
+            )
+            logger.info("LinkedIn search page %d: %s", page, url)
 
-        for card in cards[:max_results] if max_results is not None else cards:
+            # Navigate with timeout protection — mid-walk failure keeps cards
             try:
-                job = await self._parse_card(card)
-                if job:
-                    jobs.append(job)
+                await self.page.goto(url, wait_until="domcontentloaded", timeout=25000)
+            except PwTimeout:
+                logger.warning("Timeout loading LinkedIn search: %s", url)
+                break
             except Exception as e:
-                logger.warning("Failed to parse card: %s", e)
+                logger.warning("Navigation error on LinkedIn: %s", e)
+                break
 
-        logger.info("Scraped %d jobs from LinkedIn", len(jobs))
-        return jobs
+            # Anti-bot delay: 1–3s random (serial cadence, same as Indeed)
+            delay = random.uniform(1.0, 3.0)
+            logger.debug("LinkedIn anti-bot delay: %.1fs", delay)
+            await asyncio.sleep(delay)
+
+            # LinkedIn renders job cards in a list container
+            cards = await self.page.query_selector_all(".base-card, .job-search-card")
+            logger.info("LinkedIn page %d: found %d cards", page, len(cards))
+
+            if not cards:
+                break
+
+            page_jobs = 0
+            for card in cards:
+                try:
+                    job = await self._parse_card(card)
+                except Exception as e:
+                    logger.warning("Failed to parse LinkedIn card: %s", e)
+                    continue
+                if not job or not job.url:
+                    continue
+
+                # Deduplicate by URL within the walk
+                if job.url in seen_urls:
+                    continue
+                seen_urls.add(job.url)
+
+                jobs.append(job)
+                page_jobs += 1
+
+                # Early exit on max_results
+                if max_results is not None and len(jobs) >= max_results:
+                    break
+
+            logger.info("LinkedIn page %d: %d new jobs (total %d)",
+                        page, page_jobs, len(jobs))
+
+            # Last-page detection: a page with zero NEW cards ends the walk
+            if page_jobs == 0:
+                break
+
+            page += 1
+
+        logger.info("LinkedIn scrape_search complete: %d jobs from %d pages",
+                    len(jobs), page)
+        return jobs if max_results is None else jobs[:max_results]
 
     async def _parse_card(self, card: any) -> Job | None:
         """Extract job data from a single LinkedIn job card element."""
