@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -20,6 +21,33 @@ from src.core.models.job import Job
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 MAIN_POST_FILTER_DRIVER = PROJECT_ROOT / "tests" / "unit" / "_main_post_filter_driver.py"
+PER_KEYWORD_DRIVER = PROJECT_ROOT / "tests" / "unit" / "_per_keyword_driver.py"
+
+
+def _run_per_keyword_driver(
+    tmp_path: Path, *, mode: str = "main", **env: str
+) -> tuple[dict, str]:
+    """Run the per-keyword subprocess driver and return (report dict, stdout)."""
+    report = tmp_path / "report.json"
+    driver_env = os.environ.copy()
+    driver_env.update(
+        {
+            "DB_PATH": str(tmp_path / "jobs.db"),
+            "REPORT_PATH": str(report),
+            "DRIVER_MODE": mode,
+            **env,
+        }
+    )
+    proc = subprocess.run(
+        [sys.executable, str(PER_KEYWORD_DRIVER)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=PROJECT_ROOT,
+        env=driver_env,
+    )
+    assert proc.returncode == 0, f"driver failed: {proc.stderr[-2000:]}"
+    return json.loads(report.read_text(encoding="utf-8")), proc.stdout
 
 
 def _job(title: str, company: str = "", description: str = "") -> Job:
@@ -345,3 +373,153 @@ class TestApplySalaryOverrides:
         apply_env_overrides(target, {"keywords": "sre"})
         assert target.filters.salary_min == "20000"
         assert target.filters.salary_max == "50000"
+
+
+class TestApplyKeywordHelper:
+    """D1 — `_apply_keyword(base_params, keyword)` pure helper (scripts/run_search.py).
+
+    Copies base_params and overrides the platform keyword key with ONE keyword:
+    "keywords" for LinkedIn, "keyword" for InfoJobs/Tecnoempleo/Indeed-compat
+    (run_target already patches Indeed's "q" to "keyword"). Every other param
+    is preserved; the input dict is never mutated.
+    """
+
+    def test_linkedin_keyword_key_override(self, tmp_path: Path) -> None:
+        """RED: LinkedIn base uses "keywords" → overridden to the single keyword."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["apply_linkedin"] == {
+            "keywords": "devops",
+            "location": "Spain",
+            "f_TPR": "r86400",
+        }
+
+    def test_infojobs_keyword_key_override(self, tmp_path: Path) -> None:
+        """TRIANGULATE: InfoJobs/Tecnoempleo base uses "keyword" → overridden."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["apply_infojobs"] == {"keyword": "sre", "city": "Madrid"}
+
+    def test_no_keyword_key_returns_plain_copy(self, tmp_path: Path) -> None:
+        """TRIANGULATE: base without a keyword key stays unchanged (no query filter)."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["apply_no_key"] == {"location": "Spain"}
+
+    def test_none_keyword_returns_unchanged_copy(self, tmp_path: Path) -> None:
+        """TRIANGULATE: unconstrained pass (kw None) must not add/alter keys."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["apply_none"] == {"keywords": "devops sre"}
+
+    def test_base_params_never_mutated(self, tmp_path: Path) -> None:
+        """EDGE: helper copies — the caller's base_params must stay intact."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["apply_copy"]["out"] == {"keywords": "sre", "location": "Spain"}
+        assert report["apply_copy"]["base_after"] == {"keywords": "devops sre", "location": "Spain"}
+
+
+class TestKeywordPassesHelper:
+    """D1 — `_keyword_passes(keywords)` dedup helper (scripts/run_search.py).
+
+    Duplicate keywords collapse preserving order; an empty list becomes one
+    unconstrained pass ([None]); multi-word phrases stay whole.
+    """
+
+    def test_duplicate_keywords_collapse_preserving_order(self, tmp_path: Path) -> None:
+        """RED (spec 'Duplicate keywords collapse'): ["devops","devops","sre"] → 2 passes."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["passes_dedup"] == ["devops", "sre"]
+
+    def test_empty_list_means_single_unconstrained_pass(self, tmp_path: Path) -> None:
+        """RED (spec 'No keywords'): [] → [None] = one unconstrained pass."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["passes_empty"] == [None]
+
+    def test_phrase_keyword_stays_whole(self, tmp_path: Path) -> None:
+        """TRIANGULATE (spec 'Literal phrase'): "data engineer" is one pass, not two."""
+        report, _ = _run_per_keyword_driver(tmp_path, mode="helpers")
+        assert report["passes_phrase"] == ["data engineer", "devops"]
+
+
+class TestPerKeywordLoop:
+    """D1/D3 — per-keyword OR loop inside _scrape_and_enrich (scripts/run_search.py).
+
+    Runs main() in a subprocess with a fake scraper recording every
+    scrape_search call: one query per keyword (deduped), outer keyword ×
+    inner location, shared seen_urls across keyword passes, per-keyword log.
+    """
+
+    def test_two_keywords_produce_two_queries(self, tmp_path: Path) -> None:
+        """RED (spec 'Two keywords produce two queries'): devops + sre → 2 queries."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre"
+        )
+        assert [c["query"] for c in report["calls"]] == ["devops", "sre"]
+
+    def test_duplicate_keywords_issue_one_query(self, tmp_path: Path) -> None:
+        """RED (spec 'Duplicate keywords collapse'): devops,devops,sre → 2 queries."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,devops,sre"
+        )
+        assert [c["query"] for c in report["calls"]] == ["devops", "sre"]
+
+    def test_no_keywords_single_unconstrained_pass(self, tmp_path: Path) -> None:
+        """RED (spec 'No keywords'): empty list → one query without keyword."""
+        report, _ = _run_per_keyword_driver(tmp_path, TARGET_KEYWORDS="")
+        assert len(report["calls"]) == 1
+        assert report["calls"][0]["query"] == ""
+
+    def test_keyword_times_location_cross_product(self, tmp_path: Path) -> None:
+        """RED (D1 outer kw × inner location): 2 kw × 2 loc → 4 ordered passes."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", TARGET_LOCATIONS="Spain,Madrid"
+        )
+        assert [c["query"] for c in report["calls"]] == [
+            "devops", "devops", "sre", "sre",
+        ]
+        assert [c["location"] for c in report["calls"]] == [
+            "Spain", "Madrid", "Spain", "Madrid",
+        ]
+
+    def test_multiword_phrase_stays_whole_in_query(self, tmp_path: Path) -> None:
+        """RED (spec 'Multi-word phrase stays whole'): query is the literal phrase."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="data engineer,devops"
+        )
+        assert [c["query"] for c in report["calls"]] == ["data engineer", "devops"]
+
+    def test_shared_urls_deduped_across_keywords(self, tmp_path: Path) -> None:
+        """RED (spec merge+dedup): same URL set for both keywords → 5 unique, not 10."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", SHARED_URLS="1"
+        )
+        assert report["total_unique"] == 5
+
+    def test_native_filters_applied_to_every_keyword(self, tmp_path: Path) -> None:
+        """RED (spec 'Native filter parameters ... unchanged'): f_TPR on every call."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", TARGET_DATE_RANGE="last_24h"
+        )
+        assert len(report["calls"]) == 2
+        for call in report["calls"]:
+            assert call["extra_params"] == {"f_TPR": "r86400"}
+
+    def test_per_keyword_log_lines(self, tmp_path: Path) -> None:
+        """RED (spec 'Per-keyword counts logged'): per-kw unique count in the log."""
+        _, stdout = _run_per_keyword_driver(tmp_path, TARGET_KEYWORDS="devops,sre")
+        assert "Keyword 'devops': 5 unique jobs found" in stdout
+        assert "Keyword 'sre': 5 unique jobs found" in stdout
+
+    def test_shared_urls_log_zero_for_second_keyword(self, tmp_path: Path) -> None:
+        """TRIANGULATE: cross-keyword dedup → second keyword contributes 0 new."""
+        _, stdout = _run_per_keyword_driver(
+            tmp_path, TARGET_KEYWORDS="devops,sre", SHARED_URLS="1"
+        )
+        assert "Keyword 'devops': 5 unique jobs found" in stdout
+        assert "Keyword 'sre': 0 unique jobs found" in stdout
+
+    def test_infojobs_per_platform_keyword_key(self, tmp_path: Path) -> None:
+        """TRIANGULATE: InfoJobs "keyword" key path drives per-keyword queries."""
+        report, _ = _run_per_keyword_driver(
+            tmp_path, TARGET_PLATFORM="infojobs", TARGET_KEYWORDS="devops,sre"
+        )
+        assert [c["query"] for c in report["calls"]] == ["devops", "sre"]
+
+

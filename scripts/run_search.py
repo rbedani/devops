@@ -30,6 +30,36 @@ logger = logging.getLogger(__name__)
 CONFIG_PATH = TARGETS_PATH
 
 
+def _keyword_passes(keywords: list[str]) -> list[str | None]:
+    """Deduplicate keywords preserving first-seen order (spec: duplicate collapse).
+
+    An empty keyword list becomes a single unconstrained pass ([None]),
+    preserving the legacy no-keyword behavior (spec: keyword-search-iteration
+    "No keywords").
+    """
+    if not keywords:
+        return [None]
+    return list(dict.fromkeys(keywords))
+
+
+def _apply_keyword(base_params: dict, keyword: str | None) -> dict:
+    """Copy base params, overriding the platform keyword key with ONE keyword.
+
+    LinkedIn uses "keywords"; InfoJobs/Tecnoempleo/Indeed-compat use
+    "keyword" (run_target already patches Indeed's "q" to "keyword").
+    keyword=None (unconstrained pass) or a base without a keyword key
+    returns a plain copy. The input dict is never mutated.
+    """
+    params = dict(base_params)
+    if keyword is None:
+        return params
+    if "keywords" in params:
+        params["keywords"] = keyword
+    elif "keyword" in params:
+        params["keyword"] = keyword
+    return params
+
+
 async def _scrape_and_enrich(
     scraper,
     target: SearchTarget,
@@ -41,41 +71,64 @@ async def _scrape_and_enrich(
 ) -> list:
     """Shared search + dedup + enrich logic for all platforms.
 
-    Iterates over locations, scrapes search results, deduplicates by URL,
-    enriches each job with detail page, applies modality filter, and saves.
+    Issues one platform query per keyword (OR semantics, D1): an outer
+    keyword × inner location loop that deduplicates by URL across ALL
+    passes via the shared seen_urls set. Native filter parameters
+    (extra_params) are applied to every keyword query unchanged. Each
+    job is enriched with its detail page, post-scrape filters applied,
+    and saved.
     """
     all_jobs: list = []
     seen_urls: set[str] = set()
     total_locations = len(locations)
 
-    for loc_idx, location in enumerate(locations):
-        loc_label = location if location else "(any)"
-        logger.info("  Searching location %d/%d: %s", loc_idx + 1, total_locations, loc_label)
+    # D1 — outer keyword × inner location. Duplicate keywords collapse and
+    # an empty keyword list yields one unconstrained pass (spec: per-keyword
+    # query iteration).
+    keyword_passes = _keyword_passes(target.filters.keywords)
+    total_passes = len(keyword_passes) * total_locations
+    pass_count = 0
+    search_done = False
 
-        jobs = await scraper.scrape_search(
-            query=base_params.get("keywords", base_params.get("keyword", "")),
-            location=location,
-            max_results=target.max_results if max_jobs is not None else None,
-            extra_params=extra_params,
-        )
+    for keyword in keyword_passes:
+        kw_label = keyword if keyword else "(no keyword)"
+        kw_params = _apply_keyword(base_params, keyword)
+        kw_new_count = 0
+        for loc_idx, location in enumerate(locations):
+            loc_label = location if location else "(any)"
+            pass_count += 1
+            logger.info("  Searching location %d/%d: %s", loc_idx + 1, total_locations, loc_label)
 
-        # Deduplicate by URL across locations
-        new_count = 0
-        for job in jobs:
-            if job.url not in seen_urls:
-                seen_urls.add(job.url)
-                all_jobs.append(job)
-                new_count += 1
-        logger.info("  Location '%s': %d jobs (%d new, %d total unique)",
-                    loc_label, len(jobs), new_count, len(all_jobs))
+            jobs = await scraper.scrape_search(
+                query=kw_params.get("keywords", kw_params.get("keyword", "")),
+                location=location,
+                max_results=target.max_results if max_jobs is not None else None,
+                extra_params=extra_params,
+            )
 
-        # Search phase progress — distribute 20% across locations
-        loc_progress = ((loc_idx + 1) / total_locations) * 20
-        emit_progress(loc_progress)
+            # Deduplicate by URL across keywords AND locations (shared seen_urls)
+            new_count = 0
+            for job in jobs:
+                if job.url not in seen_urls:
+                    seen_urls.add(job.url)
+                    all_jobs.append(job)
+                    new_count += 1
+            kw_new_count += new_count
+            logger.info("  Location '%s': %d jobs (%d new, %d total unique)",
+                        loc_label, len(jobs), new_count, len(all_jobs))
 
-        # Apply global limit when set (debug mode: stop after N total)
-        if max_jobs is not None and len(all_jobs) >= max_jobs:
-            all_jobs = all_jobs[:max_jobs]
+            # Search phase progress — distribute 20% across kw × loc passes
+            emit_progress((pass_count / total_passes) * 20)
+
+            # Apply global limit when set (debug mode: stop after N total)
+            if max_jobs is not None and len(all_jobs) >= max_jobs:
+                all_jobs = all_jobs[:max_jobs]
+                search_done = True
+                break
+
+        # Per-keyword unique-URL count (spec: per-keyword result logging)
+        logger.info("  Keyword '%s': %d unique jobs found", kw_label, kw_new_count)
+        if search_done:
             break
 
     # Search phase done — 20% of target allocation
