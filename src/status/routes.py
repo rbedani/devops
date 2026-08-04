@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from pathlib import Path
 
@@ -171,26 +172,41 @@ def _fetch_jobs(
     filter_clauses = DEFAULT_FILTERS.build_where_clauses(active_filters)
 
     if search:
-        words = search.split()
-        columns = ["title", "company", "location", "description", "tags", "id"]
-        word_clauses = []
+        # Split on whitespace AND commas, so "2514 2475 2473" and
+        # "2514, 2475, 2473" delimit tokens identically.
+        tokens = [t for t in re.split(r"[\s,]+", search.strip()) if t]
+        word_tokens = [t for t in tokens if not t.isdigit()]
+        id_tokens = [t for t in tokens if t.isdigit()]
+
+        text_columns = ["title", "company", "location", "description", "tags"]
+        clauses: list[str] = []
         params: list[str] = []
-        for word in words:
-            col_parts: list[str] = []
-            for col in columns:
-                if col == "id":
-                    col_parts.append("CAST(id AS TEXT) LIKE ?")
-                else:
-                    col_parts.append(f"{col} LIKE ?")
-            col_clause = " OR ".join(col_parts)
-            word_clauses.append(f"({col_clause})")
-            params.extend([f"%{word}%"] * len(columns))
+
+        # Non-numeric words: each must match ANY text column (AND between
+        # words, so "madrid remoto" means the row contains both, anywhere).
+        for word in word_tokens:
+            col_clause = " OR ".join(f"{col} LIKE ?" for col in text_columns)
+            clauses.append(f"({col_clause})")
+            params.extend([f"%{word}%"] * len(text_columns))
+
+        # Numeric tokens are job IDs: ANY of them may match (OR), by exact
+        # ID or by containing the digits in a text column.
+        if id_tokens:
+            id_alternatives: list[str] = []
+            for id_str in id_tokens:
+                id_cols = [f"CAST(id AS TEXT) = ?"] + [
+                    f"{col} LIKE ?" for col in text_columns
+                ]
+                id_alternatives.append("(" + " OR ".join(id_cols) + ")")
+                params.append(id_str)
+                params.extend([f"%{id_str}%"] * len(text_columns))
+            clauses.append("(" + " OR ".join(id_alternatives) + ")")
 
         where_parts = []
         if date_clause:
             where_parts.append(date_clause)
-        if word_clauses:
-            where_parts.append(" AND ".join(word_clauses))
+        if clauses:
+            where_parts.append(" AND ".join(clauses))
         where_parts.extend(filter_clauses)
         where = "WHERE " + " AND ".join(f"({p})" for p in where_parts) if where_parts else ""
 

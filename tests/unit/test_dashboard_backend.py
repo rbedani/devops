@@ -1930,6 +1930,76 @@ class TestSearchAND:
 
 
 # =============================================================================
+# stats-fixes: Multi-ID search — numeric tokens use OR, words keep AND
+# =============================================================================
+
+class TestMultiIDSearch:
+    """Numeric tokens are job IDs: ANY may match (OR). Words keep AND."""
+
+    _ID_FIXTURES = [
+        (2514, "Tecnico/a De IT",        "http://x/id2514", "Madrid",    "Emp1", ""),
+        (2475, "Soporte Service Desk",   "http://x/id2475", "Remote",    "Emp2", ""),
+        (2473, "Consultor Dynamics 365", "http://x/id2473", "Barcelona", "Emp3", ""),
+        (9999, "Unrelated Dev",          "http://x/id9999", "Madrid",    "Emp4", ""),
+    ]
+
+    @staticmethod
+    def _seed_ids(seeded_db: str) -> None:
+        conn = sqlite3.connect(seeded_db)
+        conn.executemany(
+            "INSERT INTO jobs (id, source, title, url, company, location, tags, scraped_at, status) "
+            "VALUES (?, ?, ?, ?, ?, ?, '[]', '2024-01-16T10:00:00', ?)",
+            [(i, "tecnoempleo", t, u, c, l, s) for i, t, u, l, c, s in TestMultiIDSearch._ID_FIXTURES],
+        )
+        conn.commit()
+        conn.close()
+
+    def test_search_multiple_ids_space_separated(self, client, seeded_db):
+        """RED: '2514 2475 2473' should return the 3 jobs with those IDs (OR)."""
+        self._seed_ids(seeded_db)
+        response = client.get("/table", params={"search": "2514 2475 2473"})
+        assert response.status_code == 200
+        assert "Tecnico/a De IT" in response.text
+        assert "Soporte Service Desk" in response.text
+        assert "Consultor Dynamics 365" in response.text
+        assert "Unrelated Dev" not in response.text
+
+    def test_search_multiple_ids_comma_separated(self, client, seeded_db):
+        """RED: '2514, 2475, 2473' should behave identically to spaces."""
+        self._seed_ids(seeded_db)
+        response = client.get("/table", params={"search": "2514, 2475, 2473"})
+        assert response.status_code == 200
+        assert "Tecnico/a De IT" in response.text
+        assert "Soporte Service Desk" in response.text
+        assert "Consultor Dynamics 365" in response.text
+        assert "Unrelated Dev" not in response.text
+
+    def test_search_single_id_exact(self, client, seeded_db):
+        """RED: single numeric token matches its exact ID, not substring IDs."""
+        self._seed_ids(seeded_db)
+        response = client.get("/table", params={"search": "2514"})
+        assert response.status_code == 200
+        assert "Tecnico/a De IT" in response.text
+        assert "Unrelated Dev" not in response.text
+
+    def test_search_id_plus_word(self, client, seeded_db):
+        """RED: 'madrid 2514' → word ANDed with ID OR group."""
+        self._seed_ids(seeded_db)
+        response = client.get("/table", params={"search": "madrid 2514"})
+        assert response.status_code == 200
+        assert "Tecnico/a De IT" in response.text  # Madrid + id 2514
+        assert "Consultor Dynamics 365" not in response.text  # Madrid but not id 2514
+        assert "Unrelated Dev" not in response.text  # id 9999, no 2514
+
+    def test_search_words_still_and_across_columns(self, client):
+        """RED: word-only searches keep AND semantics (no regression)."""
+        response = client.get("/table", params={"search": "DevOps Acme"})
+        assert response.status_code == 200
+        assert "DevOps Engineer" in response.text
+        assert "Platform Engineer" not in response.text
+
+
+# =============================================================================
 # stats-fixes: Task 1.3-1.4 — Date filter uses fecha_publicacion (RED)
 # =============================================================================
 
