@@ -194,7 +194,7 @@ def _fetch_jobs(
         if id_tokens:
             id_alternatives: list[str] = []
             for id_str in id_tokens:
-                id_cols = [f"CAST(id AS TEXT) = ?"] + [
+                id_cols = ["CAST(id AS TEXT) = ?"] + [
                     f"{col} LIKE ?" for col in text_columns
                 ]
                 id_alternatives.append("(" + " OR ".join(id_cols) + ")")
