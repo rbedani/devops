@@ -78,4 +78,9 @@ DEFAULT_FILTERS = FilterRegistry(filters=[
         label="Ocultar Postulados",
         sql_where="status != 'postulado'",
     ),
+    Filter(
+        key="hide_tecnoempleo",
+        label="Ocultar Tecnoempleo",
+        sql_where="source != 'tecnoempleo'",
+    ),
 ])

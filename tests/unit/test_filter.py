@@ -60,7 +60,7 @@ class TestFilterRegistry:
 
 
 class TestDefaultFilters:
-    """DEFAULT_FILTERS — ensure the three expected filters exist."""
+    """DEFAULT_FILTERS — ensure the expected filters exist."""
 
     def test_has_hide_pendientes(self):
         f = DEFAULT_FILTERS.by_key("hide_pendientes")
@@ -81,6 +81,13 @@ class TestDefaultFilters:
         assert f.label == "Ocultar Postulados"
         assert "postulado" in (f.sql_where or "")
 
+    def test_has_hide_tecnoempleo(self):
+        f = DEFAULT_FILTERS.by_key("hide_tecnoempleo")
+        assert f is not None
+        assert f.label == "Ocultar Tecnoempleo"
+        assert "tecnoempleo" in (f.sql_where or "")
+        assert "source" in (f.sql_where or "")
+
     def test_all_defaults_have_sql(self):
         for f in DEFAULT_FILTERS.filters:
             assert f.sql_where is not None, f"Filter '{f.key}' has no sql_where"
@@ -88,5 +95,6 @@ class TestDefaultFilters:
     def test_build_all_defaults(self):
         clauses = DEFAULT_FILTERS.build_where_clauses([
             "hide_pendientes", "hide_no_aplica", "hide_postulados",
+            "hide_tecnoempleo",
         ])
-        assert len(clauses) == 3
+        assert len(clauses) == 4

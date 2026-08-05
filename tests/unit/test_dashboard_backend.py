@@ -1770,6 +1770,47 @@ class TestHidePostulados:
 
 
 # =============================================================================
+# Hide Tecnoempleo filter — oculta trabajos de la plataforma tecnoempleo
+# =============================================================================
+
+class TestHideTecnoempleo:
+    """GET /table?filters=hide_tecnoempleo excludes tecnoempleo rows."""
+
+    def _seed_tecnoempleo_row(self, seeded_db: str) -> None:
+        """Insert a tecnoempleo job into the seeded DB."""
+        import sqlite3
+        conn = sqlite3.connect(seeded_db)
+        conn.execute(
+            "INSERT INTO jobs (source, title, url, company, location, tags, scraped_at, status) "
+            "VALUES ('tecnoempleo', 'Backend Developer', 'http://x/tecno', 'Gamma Corp', "
+            "'Remote', '[]', '2024-01-12T10:00:00', '')"
+        )
+        conn.commit()
+        conn.close()
+
+    def test_hide_tecnoempleo_removes_tecnoempleo_rows(self, client, seeded_db):
+        """RED: hide_tecnoempleo filter should exclude tecnoempleo rows."""
+        self._seed_tecnoempleo_row(seeded_db)
+
+        response = client.get("/table?filters=hide_tecnoempleo")
+        assert response.status_code == 200
+        assert "Backend Developer" not in response.text
+        assert "DevOps Engineer" in response.text
+
+    def test_no_hide_shows_tecnoempleo_rows(self, client, seeded_db):
+        """RED: without the filter, tecnoempleo rows should display."""
+        self._seed_tecnoempleo_row(seeded_db)
+
+        response = client.get("/table")
+        assert "Backend Developer" in response.text
+
+    def test_hide_tecnoempleo_label_in_status_panel(self, client):
+        """RED: STATUS panel filter menu should include Ocultar Tecnoempleo."""
+        response = client.get("/status/panel")
+        assert "Ocultar Tecnoempleo" in response.text
+
+
+# =============================================================================
 # Phase 3 — Task 3.2: POST /job/{id}/status (RED)
 # =============================================================================
 
